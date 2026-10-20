@@ -90,14 +90,12 @@ namespace UnityToBeamNG
             {
                 new JsonObj().Str("name", "theLevelInfo").Str("class", "LevelInfo").Str("__parent", "Environment")
                     .Num("nearClip", 0.1f).Num("visibleDistance", s.visibleDistance).Num("fogDensity", 0.0006f).Num("fogAtmosphereHeight", 800f)
-                    .Num("gravity", -9.80665f).ToString(),
+                    .Num("gravity", -9.80665f).Str("globalEnviromentMap", "BNG_Sky_02_cubemap").ToString(),
                 new JsonObj().Str("name", "tod").Str("class", "TimeOfDay").Str("__parent", "Environment")
                     .Num("startTime", s.timeOfDay).Num("time", s.timeOfDay).Bool("play", false).Num("axisTilt", 23.44f).Num("dayLength", 1800f)
                     .Num("latitude", 47f).Num("longitude", 8f).Num("year", 2026f).Num("month", 6f).Num("day", 20f)
                     .Str("utcOffset", "2").Str("celestialProfile", "earth").ToString(),
-                new JsonObj().Str("name", "sunsky").Str("class", "ScatterSky").Str("__parent", "Environment").ToString(),
-                new JsonObj().Str("name", "clouds").Str("class", "CloudLayer").Str("__parent", "Environment")
-                    .Num("coverage", 0.2f).Num("windSpeed", 0.03f).Arr("windDirection", 1f, 0f).Num("altitudeKm", 4f).ToString()
+                new JsonObj().Str("name", "sunsky").Str("class", "ScatterSky").Str("__parent", "Environment").ToString()
             };
             WriteLines(c, MG + "Environment/items.level.json", env);
 
