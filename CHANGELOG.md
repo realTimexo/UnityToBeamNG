@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 (alpha)
+- Fix: solid-color materials (e.g. a plain red Unity material) stayed white in BeamNG. BeamNG's TextureCooker rejects textures smaller than 16x16 ("Size must be a power of two and at least 16x16"). Solid color textures are now 16x16, and all exported textures are at least 16x16.
+- Collision mode now written as `Visible Mesh Final` (BeamNG logged a performance warning for `Visible Mesh`).
+- Removed the `CloudLayer` object (it logged "Missing texture"); set `globalEnviromentMap` on `LevelInfo` (BeamNG logged it as missing).
+- Confirmed in game: image textures now display correctly.
+
 ## 0.2.1 (alpha)
 - Renamed the project to **Unity to BeamNG** (menu: `Tools > Unity to BeamNG`, folder `Assets/UnityToBeamNG`, namespace `UnityToBeamNG`).
 - Whole tool (UI, report, messages, comments) translated to English.
