@@ -1,0 +1,28 @@
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+.vs/
+.idea/
+*.csproj
+*.sln
+*.user
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+*.apk
+*.unitypackage
+
+# Exports and test output
+/exports/
+*.zip
+.tmp_*/
+
+# OS
+.DS_Store
+Thumbs.db
