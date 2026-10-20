@@ -2,7 +2,7 @@
 
 Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.drive mod ZIP.
 
-> **Status: alpha (v0.2.1).** Meshes, materials, spawn point and collision have been confirmed working in BeamNG.drive 0.40. The terrain export is implemented but **not yet verified in game**. See [Known limitations](#known-limitations).
+> **Status: alpha (v0.2.2).** Meshes, materials, spawn point and collision have been confirmed working in BeamNG.drive 0.40. The terrain export is implemented but **not yet verified in game**. See [Known limitations](#known-limitations).
 
 > **This project is vibe coded.** It was written together with an AI assistant and tested by hand. Expect rough edges, and please [report bugs](../../issues/new/choose) with the files listed below - that is how it gets better.
 
