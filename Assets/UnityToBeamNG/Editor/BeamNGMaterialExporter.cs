@@ -50,12 +50,12 @@ namespace UnityToBeamNG
             if (src == null) return null;
             string key = src.GetInstanceID() + "|" + relDir;
             string rel;
-            if (cache.TryGetValue(key, out rel)) { exportedSize = Mathf.Min(Mathf.ClosestPowerOfTwo(Mathf.Max(4, Mathf.Max(src.width, src.height))), c.Settings.maxTextureSize); return rel; }
+            if (cache.TryGetValue(key, out rel)) { exportedSize = Mathf.Min(Mathf.ClosestPowerOfTwo(Mathf.Max(16, Mathf.Max(src.width, src.height))), c.Settings.maxTextureSize); return rel; }
             try
             {
                 // Power-of-two size, capped at the max texture size (safest for BeamNG's texture pipeline).
-                int w = Mathf.Clamp(Mathf.ClosestPowerOfTwo(Mathf.Max(4, src.width)), 4, c.Settings.maxTextureSize);
-                int h = Mathf.Clamp(Mathf.ClosestPowerOfTwo(Mathf.Max(4, src.height)), 4, c.Settings.maxTextureSize);
+                int w = Mathf.Clamp(Mathf.ClosestPowerOfTwo(Mathf.Max(16, src.width)), 16, c.Settings.maxTextureSize);
+                int h = Mathf.Clamp(Mathf.ClosestPowerOfTwo(Mathf.Max(16, src.height)), 16, c.Settings.maxTextureSize);
                 var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
                 var prev = RenderTexture.active;
                 Graphics.Blit(src, rt);
@@ -86,9 +86,10 @@ namespace UnityToBeamNG
             string key = "solid_" + c32.r.ToString("x2") + c32.g.ToString("x2") + c32.b.ToString("x2") + "|" + relDir;
             string rel;
             if (cache.TryGetValue(key, out rel)) return rel;
-            var t = new Texture2D(4, 4, TextureFormat.RGBA32, false, false);
-            var px = new Color32[16];
-            for (int i = 0; i < 16; i++) px[i] = new Color32(c32.r, c32.g, c32.b, 255);
+            // BeamNG's TextureCooker rejects anything smaller than 16x16 or non power-of-two.
+            var t = new Texture2D(16, 16, TextureFormat.RGBA32, false, false);
+            var px = new Color32[256];
+            for (int i = 0; i < 256; i++) px[i] = new Color32(c32.r, c32.g, c32.b, 255);
             t.SetPixels32(px);
             rel = UniqueFile("solid_" + c32.r.ToString("x2") + c32.g.ToString("x2") + c32.b.ToString("x2"), relDir, ".color.png");
             File.WriteAllBytes(c.Abs(rel), t.EncodeToPNG());
