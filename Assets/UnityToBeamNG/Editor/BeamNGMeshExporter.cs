@@ -121,7 +121,7 @@ namespace UnityToBeamNG
             {
                 case BeamNGCollisionMode.None: return "None";
                 case BeamNGCollisionMode.Bounds: return "Bounds";
-                default: return "Visible Mesh";
+                default: return "Visible Mesh Final"; // BeamNG logs a performance warning for plain "Visible Mesh"
             }
         }
 
