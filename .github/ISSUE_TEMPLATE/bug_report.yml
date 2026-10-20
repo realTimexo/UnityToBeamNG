@@ -1,0 +1,139 @@
+name: Bug report
+description: Something does not work as expected (export error, map does not load, wrong rotation, missing textures, ...)
+title: "[Bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! The more detail you give, the faster it can be fixed.
+        **Please attach the files requested below** - most problems cannot be solved without them.
+        This project is vibe coded and still in alpha, so bugs are expected.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched existing issues and this has not been reported yet.
+          required: true
+        - label: I am using the latest version of Unity to BeamNG.
+          required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A short, clear description of the problem.
+      placeholder: "The cube is rotated the wrong way in BeamNG."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps, starting from an empty scene if possible.
+      placeholder: |
+        1. Create a cube, rotate it 11 degrees on X
+        2. Add a spawn object
+        3. Click EXPORT TO BEAMNG
+        4. Install the ZIP and load the map
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does the problem happen?
+      options:
+        - Unity (compile error / window / export)
+        - ZIP does not install or the map is not listed in BeamNG
+        - Map does not load (error in BeamNG log)
+        - Terrain
+        - Meshes / rotation / scale
+        - Materials / textures
+        - Collision / driving
+        - Spawn point
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: tool_version
+    attributes:
+      label: Unity to BeamNG version
+      description: Shown in the "About" tab.
+      placeholder: "0.2.1"
+    validations:
+      required: true
+  - type: input
+    id: unity_version
+    attributes:
+      label: Unity version
+      placeholder: "2022.3.20f1"
+    validations:
+      required: true
+  - type: dropdown
+    id: pipeline
+    attributes:
+      label: Render pipeline
+      options:
+        - Built-in
+        - URP
+        - HDRP
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: beamng_version
+    attributes:
+      label: BeamNG.drive version
+      description: Shown in the window title of the game.
+      placeholder: "0.40.0.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Windows 11"
+  - type: textarea
+    id: report
+    attributes:
+      label: Export report
+      description: Paste or attach `export_report.txt` from your export folder (or the Report tab). This is very important.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: beamng_log
+    attributes:
+      label: BeamNG log
+      description: |
+        Attach `beamng.log` right after loading the map (you can find it in the BeamNG user folder). Paste only the relevant lines here if it is large.
+      render: text
+  - type: textarea
+    id: unity_console
+    attributes:
+      label: Unity console errors
+      description: Paste any red errors from the Unity console (copy the full message, not a screenshot if possible).
+      render: text
+  - type: textarea
+    id: files
+    attributes:
+      label: Screenshots, scene and exported ZIP
+      description: |
+        Drag and drop screenshots (Unity scene view AND BeamNG) here. If possible, attach a small Unity scene that reproduces the problem and the exported ZIP.
+        Only share assets you have the right to share.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
