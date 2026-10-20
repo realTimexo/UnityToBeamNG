@@ -6,7 +6,7 @@ namespace UnityToBeamNG
 {
     public class UnityToBeamNGWindow : EditorWindow
     {
-        public const string ToolVersion = "0.2.1";
+        public const string ToolVersion = "0.2.2";
         const string DonateGumroad = "https://timexo.gumroad.com/coffee";
         const string DonatePayPal = "https://www.paypal.com/donate/?hosted_button_id=38GT8LH75W4GU";
 
