@@ -6,14 +6,14 @@ namespace UnityToBeamNG
 {
     public class UnityToBeamNGWindow : EditorWindow
     {
-        public const string ToolVersion = "0.2.2";
+        public const string ToolVersion = "0.3.0";
         const string DonateGumroad = "https://timexo.gumroad.com/coffee";
         const string DonatePayPal = "https://www.paypal.com/donate/?hosted_button_id=38GT8LH75W4GU";
 
         BeamNGExportSettings s;
         Vector2 scroll;
         int tab;
-        static readonly string[] Tabs = { "Dashboard", "Map", "Spawn", "Modules", "Report", "About" };
+        static readonly string[] Tabs = { "Dashboard", "Map", "Spawn", "Roads", "Traffic", "Modules", "Report", "About" };
 
         [MenuItem("Tools/Unity to BeamNG")]
         static void Open() { GetWindow<UnityToBeamNGWindow>("Unity to BeamNG"); }
@@ -32,9 +32,11 @@ namespace UnityToBeamNG
                 case 0: Dashboard(); break;
                 case 1: MapConfig(); break;
                 case 2: SpawnTab(); break;
-                case 3: Modules(); break;
-                case 4: ReportView(); break;
-                case 5: About(); break;
+                case 3: RoadsTab(); break;
+                case 4: TrafficTab(); break;
+                case 5: Modules(); break;
+                case 6: ReportView(); break;
+                case 7: About(); break;
             }
             if (EditorGUI.EndChangeCheck()) s.Save();
             EditorGUILayout.EndScrollView();
@@ -141,6 +143,38 @@ namespace UnityToBeamNG
             s.Save();
         }
 
+        void RoadsTab()
+        {
+            EditorGUILayout.HelpBox(
+                "Your visible roads stay normal meshes. For AI, traffic and navigation BeamNG needs a road network: it is exported as invisible DecalRoads along your road centre lines.\n\n" +
+                "1) Road Architect (or any road object): select the road object and press 'Mark selected as BeamNG road'.\n" +
+                "2) Own centre line: 'Create road from points' - move the child points along your road.\n" +
+                "3) Modular 3D road pieces: select a piece and press 'Add road piece': 2 connectors are created at its ends (blue arrow points OUT). " +
+                "For crossings/T-junctions add more connectors and move them to the arms. Pieces whose connectors touch are linked automatically.", MessageType.Info);
+            if (GUILayout.Button("Mark selected as BeamNG road (Road Architect / own object)", GUILayout.Height(24))) BeamNGRoadTools.AddRoadToSelection();
+            if (GUILayout.Button("Create road from points", GUILayout.Height(24))) BeamNGRoadTools.CreateRoadFromPoints();
+            EditorGUILayout.Space();
+            if (GUILayout.Button("Add road piece (selected model)", GUILayout.Height(24))) BeamNGRoadTools.AddPieceToSelection();
+            if (GUILayout.Button("Add connector to selected road piece", GUILayout.Height(24))) BeamNGRoadTools.AddConnectorToSelectedPiece();
+            EditorGUILayout.Space();
+            s.driveOnLeft = EditorGUILayout.ToggleLeft("Left-hand traffic (info.json roadRules)", s.driveOnLeft);
+            EditorGUILayout.LabelField("In scene: " + FindObjectsByType<BeamNGRoad>(FindObjectsSortMode.None).Length + " road(s), "
+                + FindObjectsByType<BeamNGRoadPiece>(FindObjectsSortMode.None).Length + " piece(s)");
+        }
+
+        void TrafficTab()
+        {
+            EditorGUILayout.HelpBox(
+                "Press the button to place a 4-way signal-controlled intersection in the scene. Move/rotate the whole object, then move each light next to the stop line of its road. " +
+                "The blue arrow of every light must point in the driving direction of the traffic it controls. Lights with the same phase number are green together. " +
+                "Green/yellow/all-red times are on the intersection object. The roads must be part of the road network (Roads tab).", MessageType.Info);
+            if (GUILayout.Button("Create traffic intersection (with simple poles)", GUILayout.Height(28))) BeamNGRoadTools.CreateIntersection(true);
+            if (GUILayout.Button("Create traffic intersection (logic only, use your own models)", GUILayout.Height(24))) BeamNGRoadTools.CreateIntersection(false);
+            EditorGUILayout.HelpBox("The logic (who is green when, AI stops at red) is exported to signals.json. The coloured lamps of your own models do not change colour in BeamNG yet.", MessageType.Warning);
+            EditorGUILayout.LabelField("In scene: " + FindObjectsByType<BeamNGTrafficIntersection>(FindObjectsSortMode.None).Length + " intersection(s), "
+                + FindObjectsByType<BeamNGTrafficLight>(FindObjectsSortMode.None).Length + " light(s)");
+        }
+
         void Modules()
         {
             s.exportTerrain = EditorGUILayout.ToggleLeft("Terrain (.ter + terrain materials)", s.exportTerrain);
@@ -151,7 +185,7 @@ namespace UnityToBeamNG
             EditorGUILayout.LabelField("Not implemented yet", EditorStyles.boldLabel);
             using (new EditorGUI.DisabledScope(true))
             {
-                string[] todo = { "Road network objects (road meshes are exported as plain meshes)", "Traffic light / traffic logic", "Vegetation (terrain trees/details)",
+                string[] todo = { "Traffic sign logic (stop/yield), pedestrian crossings", "Vegetation (terrain trees/details)",
                     "Water", "Normal maps / emission / transparency", "Minimap", "Bridges/tunnels as dedicated objects" };
                 foreach (var t in todo) EditorGUILayout.ToggleLeft(t, false);
             }
@@ -187,10 +221,10 @@ namespace UnityToBeamNG
         {
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Validate", GUILayout.Height(28)))
-            { BeamNGExportPipeline.Validate(s); tab = 4; }
+            { BeamNGExportPipeline.Validate(s); tab = 6; }
             var old = GUI.backgroundColor; GUI.backgroundColor = new Color(0.3f, 0.7f, 0.3f);
             if (GUILayout.Button("EXPORT TO BEAMNG", GUILayout.Height(28)))
-            { BeamNGExportPipeline.Export(s); tab = 4; }
+            { BeamNGExportPipeline.Export(s); tab = 6; }
             GUI.backgroundColor = old;
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.BeginHorizontal();
@@ -200,7 +234,7 @@ namespace UnityToBeamNG
                 if (string.IsNullOrEmpty(p) || !File.Exists(p)) p = s.exportDirectory;
                 if (!string.IsNullOrEmpty(p) && (File.Exists(p) || Directory.Exists(p))) EditorUtility.RevealInFinder(p);
             }
-            if (GUILayout.Button("Show report")) tab = 4;
+            if (GUILayout.Button("Show report")) tab = 6;
             EditorGUILayout.EndHorizontal();
         }
     }
