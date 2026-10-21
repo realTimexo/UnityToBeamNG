@@ -1,7 +1,8 @@
 # Changelog
 
 ## 0.3.0 (alpha)
-- Terrain textures: `TerrainMaterialTextureSet` + `materialTextureSet` on the TerrainBlock, base/macro/detail/normal/roughness/AO/height slots with exact sizes (fixes the black terrain).
+- Terrain textures: classic terrain materials with `diffuseMap`/`diffuseSize` per Unity layer. The PBR `TerrainMaterialTextureSet` mode is EXPERIMENTAL and off by default (BeamNG crashed with D3D12 'root cbv' when the set was not found).
+- Roads: Road Architect detection searches parents/children; new 'Find Road Architect roads in scene' button; fixed roads with a single point.
 - Road network: `BeamNGRoad` (child points or Road Architect) and `BeamNGRoadPiece` (modular 3D pieces with connectors) are exported as invisible DecalRoads; endpoints within 0.75 m are snapped together.
 - Traffic lights: `BeamNGTrafficIntersection` + `BeamNGTrafficLight`, one-button 4-way intersection, `signals.json`.
 - New tabs: Roads, Traffic. New option: left-hand traffic.
