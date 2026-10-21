@@ -26,7 +26,7 @@ namespace UnityToBeamNG
     [Serializable]
     public class ExportManifest
     {
-        public string tool = "Unity to BeamNG 0.3.0";
+        public string tool = "Unity to BeamNG 0.3.1";
         public string unityVersion;
         public string levelName;
         public string mapName;
