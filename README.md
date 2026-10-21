@@ -2,7 +2,7 @@
 
 Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.drive mod ZIP.
 
-> **Status: alpha (v0.2.2).** Meshes, materials, spawn point and collision have been confirmed working in BeamNG.drive 0.40. The terrain export is implemented but **not yet verified in game**. See [Known limitations](#known-limitations).
+> **Status: alpha (v0.3.0).** Meshes, materials, spawn point, collision and terrain height have been confirmed working in BeamNG.drive 0.40. Terrain textures, the road network (AI) and traffic lights are new in 0.3.0 and **not yet verified in game**. See [Known limitations](#known-limitations).
 
 > **This project is vibe coded.** It was written together with an AI assistant and tested by hand. Expect rough edges, and please [report bugs](../../issues/new/choose) with the files listed below - that is how it gets better.
 
@@ -108,3 +108,14 @@ Maps you export belong to you. This project is not affiliated with BeamNG GmbH o
 ## Credits
 
 Built against the public [BeamNG documentation](https://documentation.beamng.com/) (level file formats, terrain `.ter`, level objects, materials).
+
+
+## Roads, AI and traffic lights (v0.3.0, untested in game)
+
+Open **Tools > Unity to BeamNG**, tabs **Roads** and **Traffic**.
+
+- **Road network:** your visible roads stay normal meshes. The tool exports invisible `DecalRoad` objects (`road_invisible`) along the centre lines, which BeamNG uses for AI, traffic and navigation.
+  - *Road Architect / any road object:* select it, press "Mark selected as BeamNG road" (the centre line is read from the Road Architect spline via reflection; if that fails, use child points).
+  - *Own centre line:* "Create road from points".
+  - *Modular 3D pieces:* "Add road piece" creates connectors at both ends; add more connectors for T-junctions and crossings. Touching connectors are joined automatically.
+- **Traffic lights:** "Create traffic intersection" places 4 lights (2 phases). Timings are on the intersection object. Exported to `signals.json` (controller type `lightsBasic`).
