@@ -14,6 +14,8 @@ namespace UnityToBeamNG
         public string ExtrasDir;   // Root/extras (NOT zipped)
         public Func<string, float, bool> Progress;
         public bool Aborted;
+        public List<string> RoadLines = new List<string>();
+        public readonly Dictionary<BeamNGTrafficLight, string> SignalNames = new Dictionary<BeamNGTrafficLight, string>();
         public readonly List<string> Required = new List<string>(); // relative to LevelDir
 
         public bool Cancelled(string step, float p)
