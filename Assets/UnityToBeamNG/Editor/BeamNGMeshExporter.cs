@@ -166,7 +166,12 @@ namespace UnityToBeamNG
                 var sc = BeamNGCoordinateConverter.Scale(t.lossyScale);
                 var objName = BeamNGEditorUtilities.SafeId(inst.Renderer.name) + "_" + (instanceNo++);
 
-                lines.Add(BeamNGLevelBuilder.StaticLine(objName, c.VPath(rel), pos, rot, sc, CollisionString(inst.Collision)));
+                var line = BeamNGLevelBuilder.StaticLine(objName, c.VPath(rel), pos, rot, sc, CollisionString(inst.Collision));
+                var sigLight = inst.Renderer.GetComponentInParent<BeamNGTrafficLight>();
+                string sigName;
+                if (sigLight != null && c.SignalNames.TryGetValue(sigLight, out sigName))
+                    line = line.Substring(0, line.Length - 1) + ",\"signalInstance\":" + BeamNGJson.Q(sigName) + "}";
+                lines.Add(line);
 
                 string prefab = "";
                 var src = UnityEditor.PrefabUtility.GetCorrespondingObjectFromSource(inst.Renderer.gameObject);
