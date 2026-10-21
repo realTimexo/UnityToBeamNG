@@ -166,7 +166,9 @@ namespace UnityToBeamNG
                 var sc = BeamNGCoordinateConverter.Scale(t.lossyScale);
                 var objName = BeamNGEditorUtilities.SafeId(inst.Renderer.name) + "_" + (instanceNo++);
 
-                var line = BeamNGLevelBuilder.StaticLine(objName, c.VPath(rel), pos, rot, sc, CollisionString(inst.Collision));
+                string lampName; var collision = inst.Collision;
+                if (c.LampNames.TryGetValue(inst.Renderer, out lampName)) { objName = lampName; collision = BeamNGCollisionMode.None; }
+                var line = BeamNGLevelBuilder.StaticLine(objName, c.VPath(rel), pos, rot, sc, CollisionString(collision));
                 var sigLight = inst.Renderer.GetComponentInParent<BeamNGTrafficLight>();
                 string sigName;
                 if (sigLight != null && c.SignalNames.TryGetValue(sigLight, out sigName))
