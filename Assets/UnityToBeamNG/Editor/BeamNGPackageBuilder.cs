@@ -122,8 +122,13 @@ namespace UnityToBeamNG
         public static void CreateZip(string root, string zipPath)
         {
             if (File.Exists(zipPath)) File.Delete(zipPath);
-            var levels = Path.Combine(root, "levels");
-            var files = Directory.GetFiles(levels, "*", SearchOption.AllDirectories);
+            var fileList = new List<string>();
+            foreach (var top in new[] { "levels", "scripts", "lua" })
+            {
+                var dir = Path.Combine(root, top);
+                if (Directory.Exists(dir)) fileList.AddRange(Directory.GetFiles(dir, "*", SearchOption.AllDirectories));
+            }
+            var files = fileList.ToArray();
             Array.Sort(files, StringComparer.Ordinal);
             using (var zs = new FileStream(zipPath, FileMode.Create))
             using (var za = new ZipArchive(zs, ZipArchiveMode.Create))
