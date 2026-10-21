@@ -36,13 +36,16 @@ namespace UnityToBeamNG
                 if (!road.gameObject.activeInHierarchy || !road.exportEnabled) continue;
                 roadsFound++;
                 List<Vector3> pts; float w = road.width;
-                if (road.source == BeamNGRoadSource.RoadArchitect)
+                var effectiveSource = road.source;
+                // Road Architect nodes found on/around this object: always prefer them over the child objects (meshes etc.)
+                if (effectiveSource == BeamNGRoadSource.ChildPoints && RaNodeTransforms(road.gameObject, true) != null) effectiveSource = BeamNGRoadSource.RoadArchitect;
+                if (effectiveSource == BeamNGRoadSource.RoadArchitect)
                 {
                     float rw;
                     pts = FromRoadArchitect(road, out rw);
                     if (pts == null)
                     {
-                        r.Add(ReportStatus.WARNING, "Roads", $"'{road.name}': no Road Architect road found on this object (or its API differs).", "Switch the source to 'ChildPoints' and place child points along the road.");
+                        r.Add(ReportStatus.WARNING, "Roads", $"'{road.name}': no Road Architect road found (components seen: {DescribeComponents(road.gameObject)}).", "Send this list to the tool author, or use 'Create road from points'.");
                         continue;
                     }
                     if (rw > 0.5f) w = rw;
@@ -54,7 +57,7 @@ namespace UnityToBeamNG
                     float rw2; var alt = FromRoadArchitect(road, out rw2);
                     if (alt != null && alt.Count >= 2) { pts = alt; if (rw2 > 0.5f) w = rw2; }
                 }
-                if (pts.Count < 2) { r.Add(ReportStatus.WARNING, "Roads", $"'{road.name}': fewer than 2 distinct points, skipped (a mesh object has all children at one position).", "Use 'Find Road Architect roads in scene' in the Roads tab, or 'Create road from points'."); continue; }
+                if (pts.Count < 2) { r.Add(ReportStatus.WARNING, "Roads", $"'{road.name}': fewer than 2 distinct points, skipped (a mesh object has all children at one position).", "Components seen: " + DescribeComponents(road.gameObject)); continue; }
                 list.Add(new RoadPath
                 {
                     Name = BeamNGEditorUtilities.SafeId(road.name), Points = Dedupe(pts), Width = w, Drivability = road.drivability,
@@ -195,6 +198,7 @@ namespace UnityToBeamNG
         public static bool IsRoadArchitectRoad(Component comp)
         {
             if (comp == null) return false;
+            if (comp.GetType().Name.EndsWith("Road", StringComparison.Ordinal) && !(comp is BeamNGRoad) && RaNodeTransforms(comp.gameObject, false) != null) return true;
             try
             {
                 var spline = Member(comp, "spline", "mSpline", "Spline");
@@ -208,6 +212,89 @@ namespace UnityToBeamNG
         }
 
         static List<Vector3> FromRoadArchitect(BeamNGRoad road, out float width)
+        {
+            var legacy = FromRoadArchitectLegacy(road, out width);
+            if (legacy != null) return legacy;
+            return FromRaNodes(road.gameObject, out width);
+        }
+
+        static bool TypeEndsWith(Component c, string suffix)
+        {
+            return c != null && c.GetType().Name.EndsWith(suffix, StringComparison.Ordinal);
+        }
+
+        /// <summary>Road Architect keeps its nodes as child objects with a "SplineN" component (below the "Spline" object).</summary>
+        public static List<Transform> RaNodeTransforms(GameObject go, bool climb)
+        {
+            for (var t = go.transform; t != null; t = climb ? t.parent : null)
+            {
+                var nodes = new List<Transform>();
+                foreach (var mb in t.GetComponentsInChildren<MonoBehaviour>(true))
+                    if (TypeEndsWith(mb, "SplineN")) nodes.Add(mb.transform);
+                if (nodes.Count >= 2) return nodes;
+            }
+            return null;
+        }
+
+        static List<Vector3> FromRaNodes(GameObject go, out float width)
+        {
+            width = -1f;
+            Transform owner = null; List<Transform> nodeT = null;
+            for (var t = go.transform; t != null && nodeT == null; t = t.parent)
+            {
+                var nodes = new List<Transform>();
+                foreach (var mb in t.GetComponentsInChildren<MonoBehaviour>(true)) if (TypeEndsWith(mb, "SplineN")) nodes.Add(mb.transform);
+                if (nodes.Count >= 2) { owner = t; nodeT = nodes; }
+            }
+            if (nodeT == null) return null;
+            var pts = new List<Vector3>();
+            foreach (var n in nodeT) pts.Add(n.position);
+
+            // width from the Road component (this object or a parent)
+            for (var t = owner; t != null && width < 0f; t = t.parent)
+                foreach (var mb in t.GetComponents<MonoBehaviour>())
+                {
+                    var w = Member(mb, "RoadWidth", "roadWidth", "mRoadWidth");
+                    if (w is float && (float)w > 0.5f) { width = (float)w; break; }
+                }
+
+            // smooth sampling through the SplineC itself
+            try
+            {
+                foreach (var mb in owner.GetComponentsInChildren<MonoBehaviour>(true))
+                {
+                    if (!TypeEndsWith(mb, "SplineC")) continue;
+                    var m = mb.GetType().GetMethod("GetSplineValue", All);
+                    if (m == null) continue;
+                    var prm = m.GetParameters();
+                    if (prm.Length < 1 || prm.Length > 2) continue;
+                    var samples = new List<Vector3>();
+                    int count = Mathf.Clamp(pts.Count * 8, 8, 2000);
+                    bool ok = true;
+                    for (int i = 0; i <= count && ok; i++)
+                    {
+                        float tt = i / (float)count;
+                        object res = prm.Length == 1 ? m.Invoke(mb, new object[] { tt }) : m.Invoke(mb, new object[] { tt, false });
+                        if (res is Vector3) samples.Add((Vector3)res); else ok = false;
+                    }
+                    if (ok && samples.Count >= 2 && (samples[0] - pts[0]).magnitude < 25f && (samples[samples.Count - 1] - pts[pts.Count - 1]).magnitude < 25f)
+                        return Dedupe(samples);
+                }
+            }
+            catch (Exception e) { Debug.LogWarning("Road Architect spline sampling failed, using nodes: " + e.Message); }
+            return Dedupe(pts);
+        }
+
+        public static string DescribeComponents(GameObject go)
+        {
+            var names = new SortedSet<string>();
+            for (var t = go.transform; t != null; t = t.parent)
+                foreach (var mb in t.GetComponentsInChildren<MonoBehaviour>(true)) if (mb != null) names.Add(mb.GetType().Name);
+            var l = new List<string>(names); if (l.Count > 25) l = l.GetRange(0, 25);
+            return string.Join(", ", l);
+        }
+
+        static List<Vector3> FromRoadArchitectLegacy(BeamNGRoad road, out float width)
         {
             width = -1f;
             foreach (var comp in Candidates(road.gameObject))
