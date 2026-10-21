@@ -151,6 +151,20 @@ namespace UnityToBeamNG
             return null;
         }
 
+        static bool HasAlpha(Texture t)
+        {
+            try { return UnityEngine.Experimental.Rendering.GraphicsFormatUtility.HasAlphaChannel(t.graphicsFormat); }
+            catch { return false; }
+        }
+
+        static readonly string[] MarkingWords = { "mark", "line", "yellow", "white", "decal", "overlay", "tire", "stripe", "paint", "crack", "arrow", "crosswalk", "zebra" };
+        static bool LooksLikeMarking(string name)
+        {
+            var n = name.ToLowerInvariant();
+            foreach (var w in MarkingWords) if (n.Contains(w)) return true;
+            return false;
+        }
+
         static float FindFloat(Material m, float def, params string[] props)
         {
             foreach (var p in props) if (m.HasProperty(p)) return m.GetFloat(p);
@@ -168,7 +182,7 @@ namespace UnityToBeamNG
         {
             if (reg.Materials.Count == 0 && !reg.UsesMissing) return;
             var entries = new List<string>();
-            int tiled = 0, transparent = 0, normals = 0, emissive = 0, tinted = 0;
+            int tiled = 0, transparent = 0, cutouts = 0, normals = 0, emissive = 0, tinted = 0;
 
             foreach (var m in reg.Materials)
             {
@@ -185,9 +199,15 @@ namespace UnityToBeamNG
 
                 var ts = m.mainTextureScale;
                 if (mainTex != null && (Mathf.Abs(ts.x - 1) > 0.001f || Mathf.Abs(ts.y - 1) > 0.001f)) tiled++;
-                if (m.renderQueue >= 3000) transparent++;
                 if (FindTex(m, "_BumpMap") != null) normals++;
-                if (m.IsKeywordEnabled("_EMISSION")) emissive++;
+
+                // transparency: blend (queue >= 3000 / Standard _Mode 2,3), cutout (queue >= 2450 / _Mode 1), or an
+                // RGBA texture on a road-marking/decal-like material (name hint).
+                float mode = m.HasProperty("_Mode") ? m.GetFloat("_Mode") : 0f;
+                bool blend = m.renderQueue >= 3000 || mode >= 2f || m.IsKeywordEnabled("_ALPHABLEND_ON") || m.IsKeywordEnabled("_ALPHAPREMULTIPLY_ON");
+                bool cutout = !blend && (m.renderQueue >= 2450 || Mathf.Approximately(mode, 1f) || m.IsKeywordEnabled("_ALPHATEST_ON"));
+                if (!blend && !cutout && mainTex != null && HasAlpha(mainTex) && LooksLikeMarking(name)) blend = true;
+                if (blend) transparent++; else if (cutout) cutouts++;
 
                 // Plain string / number values (an array-valued "baseColorMap" made BeamNG ignore the texture).
                 var stage = new JsonObj()
@@ -195,9 +215,29 @@ namespace UnityToBeamNG
                     .Arr("baseColorFactor", 1f, 1f, 1f, 1f)
                     .Num("metallicFactor", metallic)
                     .Num("roughnessFactor", 1f - smooth);
+                // emission (e.g. lamps of traffic lights)
+                if (m.IsKeywordEnabled("_EMISSION") && m.HasProperty("_EmissionColor"))
+                {
+                    var ec = m.GetColor("_EmissionColor");
+                    if (ec.maxColorComponent > 0.01f)
+                    {
+                        var etex = FindTex(m, "_EmissionMap");
+                        string erel = null; int esz;
+                        if (etex != null) erel = tex.ExportColor(etex, "art/textures", out esz);
+                        if (erel == null)
+                        {
+                            float mx = Mathf.Max(1f, ec.maxColorComponent);
+                            erel = tex.ExportSolid(new Color(Mathf.Clamp01(ec.r / mx), Mathf.Clamp01(ec.g / mx), Mathf.Clamp01(ec.b / mx)), "art/textures");
+                        }
+                        stage.Str("emissiveMap", c.VPath(erel)).Arr("emissiveFactor", 1f, 1f, 1f, 1f);
+                        emissive++;
+                    }
+                }
                 var mat = new JsonObj()
-                    .Str("name", name).Str("class", "Material").Str("mapTo", name).Num("version", 1.5f)
-                    .Raw("Stages", "[" + stage + ",{},{},{}]");
+                    .Str("name", name).Str("class", "Material").Str("mapTo", name).Num("version", 1.5f);
+                if (blend) mat.Bool("translucent", true).Str("translucentBlendOp", "LerpAlpha").Bool("translucentZWrite", false);
+                else if (cutout) mat.Bool("alphaTest", true).Num("alphaRef", Mathf.Clamp(m.HasProperty("_Cutoff") ? m.GetFloat("_Cutoff") * 255f : 127f, 1f, 254f));
+                mat.Raw("Stages", "[" + stage + ",{},{},{}]");
                 entries.Add(BeamNGJson.Q(name) + ":" + mat);
             }
             if (reg.UsesMissing)
@@ -221,8 +261,9 @@ namespace UnityToBeamNG
             c.Report.Add(ReportStatus.WARNING, "Material", "Material JSON follows the docs example (version 1.5) but has not been verified in game.", "Check the BeamNG log for material errors on first load.");
             if (normals > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{normals} material(s) with a normal map: normal maps are NOT transferred (encoding unreliable).", "Add normal maps manually as *.normal.png.");
             if (tiled > 0) c.Report.Add(ReportStatus.PASS, "Material", $"{tiled} material(s) with texture tiling/offset: baked into the DAE UVs.");
-            if (transparent > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{transparent} transparent material(s) are exported as opaque.", "");
-            if (emissive > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{emissive} material(s) with emission: emission is not transferred.", "");
+            if (transparent > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{transparent} transparent material(s) exported with alpha blending (translucent/LerpAlpha, e.g. road markings); untested in game.", "");
+            if (cutouts > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{cutouts} cutout material(s) exported with alpha test; untested in game.", "");
+            if (emissive > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{emissive} material(s) with emission exported (emissiveMap/emissiveFactor); untested in game.", "");
             if (tinted > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{tinted} material(s) with a color tint: the tint is not baked into the texture.", "");
         }
     }
