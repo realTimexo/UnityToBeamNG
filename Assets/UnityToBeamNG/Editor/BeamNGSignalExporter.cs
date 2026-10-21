@@ -12,6 +12,22 @@ namespace UnityToBeamNG
     /// </summary>
     public static class BeamNGSignalExporter
     {
+        static bool AddLamp(BeamNGExportContext c, JsonObj lamp, string role, Transform t, string signalName)
+        {
+            var names = new List<string>();
+            if (t != null)
+            {
+                int k = 0;
+                foreach (var mr in t.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    string n = signalName + "_" + role + "_" + (k++);
+                    c.LampNames[mr] = n; names.Add(n);
+                }
+            }
+            lamp.Raw(role, BeamNGJson.AS(names));
+            return names.Count > 0;
+        }
+
         public static void Export(BeamNGExportContext c)
         {
             var r = c.Report;
@@ -22,6 +38,7 @@ namespace UnityToBeamNG
             var instances = new List<string>(); var controllers = new List<string>(); var sequences = new List<string>();
             int id = 1, interCount = 0;
             var usedNames = new HashSet<string>();
+            var lampSignals = new List<string>();
 
             foreach (var inter in inters)
             {
@@ -53,6 +70,7 @@ namespace UnityToBeamNG
                 sequences.Add(new JsonObj().Num("id", seqId).Str("name", interName + "_sequence").Num("startTime", 0f)
                     .Bool("startDisabled", false).Bool("ignoreTimer", false).Raw("phases", "[" + string.Join(",", seqPhases) + "]").ToString());
 
+                int phaseCount = phaseKeys.Count;
                 foreach (var l in lights)
                 {
                     covered.Add(l);
@@ -64,6 +82,15 @@ namespace UnityToBeamNG
                     instances.Add(new JsonObj().Num("id", id++).Str("name", name).Num("controllerId", phases[l.phase]).Num("sequenceId", seqId)
                         .Arr("pos", pos.x, pos.y, pos.z).Arr("dir", dir.x, dir.y, dir.z).Str("group", interName).Bool("startDisabled", false).ToString());
                     if (l.linkVisual) c.SignalNames[l] = name;
+
+                    var lamp = new JsonObj().Str("name", name)
+                        .Num("phaseIndex", phaseKeys.IndexOf(l.phase)).Num("phaseCount", phaseCount)
+                        .Num("green", inter.greenSeconds).Num("yellow", inter.yellowSeconds).Num("allRed", inter.allRedSeconds);
+                    bool anyLamp = false;
+                    anyLamp |= AddLamp(c, lamp, "red", l.redLamp, name);
+                    anyLamp |= AddLamp(c, lamp, "yellow", l.yellowLamp, name);
+                    anyLamp |= AddLamp(c, lamp, "green", l.greenLamp, name);
+                    if (anyLamp) lampSignals.Add(lamp.ToString());
                 }
                 interCount++;
             }
@@ -79,6 +106,15 @@ namespace UnityToBeamNG
             sb.Append("\"sequences\":[\n").Append(string.Join(",\n", sequences)).Append("\n]\n}\n");
             File.WriteAllText(c.Abs("signals.json"), sb.ToString(), new UTF8Encoding(false));
             c.Require("signals.json");
+            if (lampSignals.Count > 0)
+            {
+                File.WriteAllText(c.Abs("signal_lamps.json"), "{\"signals\":[\n" + string.Join(",\n", lampSignals) + "\n]}\n", new UTF8Encoding(false));
+                c.Require("signal_lamps.json");
+                File.WriteAllText(c.AbsRoot(BeamNGLuaFiles.ModScriptPath), BeamNGLuaFiles.ModScript, new UTF8Encoding(false));
+                File.WriteAllText(c.AbsRoot(BeamNGLuaFiles.ExtensionPath), BeamNGLuaFiles.Extension, new UTF8Encoding(false));
+                r.Add(ReportStatus.PASS, "Traffic", $"{lampSignals.Count} signal(s) with lamp objects: signal_lamps.json + Lua extension (switches red/yellow/green lamps in game).");
+                r.Add(ReportStatus.WARNING, "Traffic", "Lamp switching uses a Lua extension that reads the signal state from core_trafficSignals (API names unverified; falls back to the exported timing).", "Check the BeamNG log for 'unityToBeamNG'.");
+            }
             r.Add(ReportStatus.PASS, "Traffic", $"signals.json: {interCount} intersection(s), {instances.Count} signal(s), {controllers.Count} controller(s).");
             r.Add(ReportStatus.WARNING, "Traffic", "Signal logic follows the BeamNG docs (controller type 'lightsBasic') but is untested in game. Lights only act on roads that are part of the AI road network; place each light near the stop line.", "Check the BeamNG log and the signals editor (World Editor).");
         }
