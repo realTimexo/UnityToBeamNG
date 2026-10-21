@@ -80,6 +80,49 @@ namespace UnityToBeamNG
             }
         }
 
+
+        /// <summary>Exports src resized to exactly size x size (used for terrain texture slots).</summary>
+        public string ExportSized(Texture src, string relDir, int size, string suffix, bool linear)
+        {
+            if (src == null) return null;
+            string key = "sz" + size + suffix + "|" + src.GetInstanceID() + "|" + relDir;
+            string rel;
+            if (cache.TryGetValue(key, out rel)) return rel;
+            var rt = RenderTexture.GetTemporary(size, size, 0, RenderTextureFormat.ARGB32, linear ? RenderTextureReadWrite.Linear : RenderTextureReadWrite.sRGB);
+            var prev = RenderTexture.active;
+            Graphics.Blit(src, rt);
+            RenderTexture.active = rt;
+            var t2 = new Texture2D(size, size, TextureFormat.RGBA32, false, linear);
+            t2.ReadPixels(new Rect(0, 0, size, size), 0, 0);
+            t2.Apply();
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(rt);
+            rel = UniqueFile(BeamNGEditorUtilities.SafeId(src.name), relDir, suffix);
+            File.WriteAllBytes(c.Abs(rel), t2.EncodeToPNG());
+            Object.DestroyImmediate(t2);
+            c.Require(rel);
+            cache[key] = rel;
+            return rel;
+        }
+
+        /// <summary>Flat single-color PNG of exactly size x size (neutral macro/detail/normal/roughness/ao/height slots).</summary>
+        public string ExportFlat(Color32 col, string relDir, string name, int size, string suffix)
+        {
+            string key = "flat_" + name + size + suffix + "|" + relDir;
+            string rel;
+            if (cache.TryGetValue(key, out rel)) return rel;
+            var t = new Texture2D(size, size, TextureFormat.RGBA32, false, true);
+            var px = new Color32[size * size];
+            for (int i = 0; i < px.Length; i++) px[i] = col;
+            t.SetPixels32(px);
+            rel = UniqueFile(name + "_" + size, relDir, suffix);
+            File.WriteAllBytes(c.Abs(rel), t.EncodeToPNG());
+            Object.DestroyImmediate(t);
+            c.Require(rel);
+            cache[key] = rel;
+            return rel;
+        }
+
         public string ExportSolid(Color col, string relDir)
         {
             var c32 = (Color32)col;
