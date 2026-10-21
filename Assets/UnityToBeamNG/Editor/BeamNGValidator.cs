@@ -40,7 +40,7 @@ namespace UnityToBeamNG
                 r.Add(ReportStatus.WARNING, "Performance", $"{scan.Triangles:N0} triangles; 'Visible Mesh' collision on all of them can be heavy for BeamNG.", "Use BeamNGCollisionSettings (None/Bounds) on decoration. Nothing is reduced automatically.");
             if (scan.Terrains.Count == 0 && s.exportTerrain)
                 r.Add(ReportStatus.WARNING, "Terrain", "No terrain in the scene: the map has no TerrainBlock; the drivable surface must be made of meshes.", "");
-            r.Add(ReportStatus.MANUAL, "Features", "Not included: road objects (meshes work), traffic light logic, vegetation, water, normal maps, minimap.", "See README.");
+            r.Add(ReportStatus.MANUAL, "Features", "Not included: vegetation, water, normal maps, minimap, stop/yield signs.", "See README.");
         }
     }
 }
