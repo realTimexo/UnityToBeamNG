@@ -6,7 +6,10 @@ namespace UnityToBeamNG
 {
     public class UnityToBeamNGWindow : EditorWindow
     {
-        public const string ToolVersion = "0.3.0";
+        public const string ToolVersion = "0.3.1";
+        public const string RepoUrl = "https://github.com/realTimexo/UnityToBeamNG";
+        public const string ReleasesUrl = "https://github.com/realTimexo/UnityToBeamNG/releases";
+        public const string IssuesUrl = "https://github.com/realTimexo/UnityToBeamNG/issues";
         const string DonateGumroad = "https://timexo.gumroad.com/coffee";
         const string DonatePayPal = "https://www.paypal.com/donate/?hosted_button_id=38GT8LH75W4GU";
 
@@ -173,7 +176,7 @@ namespace UnityToBeamNG
                 "Green/yellow/all-red times are on the intersection object. The roads must be part of the road network (Roads tab).", MessageType.Info);
             if (GUILayout.Button("Create traffic intersection (with simple poles)", GUILayout.Height(28))) BeamNGRoadTools.CreateIntersection(true);
             if (GUILayout.Button("Create traffic intersection (logic only, use your own models)", GUILayout.Height(24))) BeamNGRoadTools.CreateIntersection(false);
-            EditorGUILayout.HelpBox("The logic (who is green when, AI stops at red) is exported to signals.json. The coloured lamps of your own models do not change colour in BeamNG yet.", MessageType.Warning);
+            EditorGUILayout.HelpBox("Logic (who is green when, AI stops at red) goes to signals.json. The lamps (red/yellow/green objects assigned on each light) are switched in game by a small Lua extension that ships inside the ZIP. For your own models assign the three lamp objects (emissive materials) on the Traffic Light component.", MessageType.Warning);
             EditorGUILayout.LabelField("In scene: " + FindObjectsByType<BeamNGTrafficIntersection>(FindObjectsSortMode.None).Length + " intersection(s), "
                 + FindObjectsByType<BeamNGTrafficLight>(FindObjectsSortMode.None).Length + " light(s)");
         }
@@ -213,6 +216,10 @@ namespace UnityToBeamNG
             EditorGUILayout.LabelField("Unity to BeamNG", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("Version " + ToolVersion + " (alpha)");
             EditorGUILayout.HelpBox("This project is vibe coded with AI assistance. Expect rough edges and please report bugs with the export report and the BeamNG log attached.", MessageType.Info);
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Download latest release (GitHub)")) Application.OpenURL(ReleasesUrl);
+            if (GUILayout.Button("Report an issue / bug")) Application.OpenURL(IssuesUrl);
+            EditorGUILayout.EndHorizontal();
             EditorGUILayout.LabelField("Like it? Support the project:");
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Buy me a coffee (Gumroad)")) Application.OpenURL(DonateGumroad);
@@ -231,6 +238,7 @@ namespace UnityToBeamNG
             { BeamNGExportPipeline.Export(s); tab = 6; }
             GUI.backgroundColor = old;
             EditorGUILayout.EndHorizontal();
+            if (GUILayout.Button("Report an issue / bug on GitHub")) Application.OpenURL(IssuesUrl);
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Open export folder"))
             {
