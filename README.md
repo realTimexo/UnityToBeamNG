@@ -2,9 +2,9 @@
 
 Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.drive mod ZIP.
 
-> **Status: alpha (v0.3.0).** Meshes, materials, spawn point, collision and terrain height have been confirmed working in BeamNG.drive 0.40. Terrain textures, the road network (AI) and traffic lights are new in 0.3.0 and **not yet verified in game**. See [Known limitations](#known-limitations).
+> **Status: alpha (v0.3.1).** Meshes, materials, spawn point, collision and terrain height have been confirmed working in BeamNG.drive 0.40. Terrain textures, the road network (AI) and traffic lights are new in 0.3.x and **not yet verified in game**. See [Known limitations](#known-limitations).
 
-> **This project is vibe coded.** It was written together with an AI assistant and tested by hand. Expect rough edges, and please [report bugs](../../issues/new/choose) with the files listed below - that is how it gets better.
+> **This project is vibe coded.** It was written together with an AI assistant and tested by hand. Expect rough edges, and please [report bugs](https://github.com/realTimexo/UnityToBeamNG/issues/new/choose) with the files listed below - that is how it gets better.
 
 ## Features
 
@@ -26,7 +26,7 @@ Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.d
 
 ## Install
 
-1. Download or clone this repository.
+1. Download the latest release ZIP from the [Releases page](https://github.com/realTimexo/UnityToBeamNG/releases) (or clone [the repository](https://github.com/realTimexo/UnityToBeamNG)).
 2. Copy the folder `Assets/UnityToBeamNG` into the `Assets` folder of your Unity project.
 3. Wait for Unity to compile. The menu `Tools > Unity to BeamNG` appears.
 
@@ -83,7 +83,7 @@ If something is off, the export report says so. **A successful export means the 
 
 ## Reporting bugs
 
-Use the [bug report template](../../issues/new/choose). Please attach:
+Use the [bug report template](https://github.com/realTimexo/UnityToBeamNG/issues/new/choose) (or the **Report an issue / bug on GitHub** button in the tool window). Please attach:
 
 1. `export_report.txt` (in your export folder, also shown in the **Report** tab)
 2. `beamng.log` from right after loading the map
@@ -101,7 +101,7 @@ If this tool saves you time, you can support its development:
 
 Copyright (c) 2026 Timexo. All rights reserved. See [LICENSE](LICENSE).
 
-In short: free to use for exporting your own maps (including commercial ones). You may not redistribute or sell the code. If you show the tool or maps made with it on social media or elsewhere, link to the project: **https://github.com/realTimexo/UnityToBeamNG**.
+In short: free to use for exporting your own maps (including commercial ones). You may not redistribute or sell the code. If you show the tool or maps made with it on social media or elsewhere, link to the project: **[link to site]**.
 
 Maps you export belong to you. This project is not affiliated with BeamNG GmbH or Unity Technologies.
 
@@ -110,7 +110,11 @@ Maps you export belong to you. This project is not affiliated with BeamNG GmbH o
 Built against the public [BeamNG documentation](https://documentation.beamng.com/) (level file formats, terrain `.ter`, level objects, materials).
 
 
-## Roads, AI and traffic lights (v0.3.0, untested in game)
+## Download
+
+Grab the newest ZIP from the **[Releases page](https://github.com/realTimexo/UnityToBeamNG/releases)** and unpack it into your Unity project (it contains `Assets/UnityToBeamNG`). Found a problem? Use the **Report an issue** button in the tool window or [open an issue](https://github.com/realTimexo/UnityToBeamNG/issues).
+
+## Roads, AI and traffic lights (v0.3.1, untested in game)
 
 Open **Tools > Unity to BeamNG**, tabs **Roads** and **Traffic**.
 
@@ -118,4 +122,8 @@ Open **Tools > Unity to BeamNG**, tabs **Roads** and **Traffic**.
   - *Road Architect / any road object:* select it, press "Mark selected as BeamNG road" (the centre line is read from the Road Architect spline via reflection; if that fails, use child points).
   - *Own centre line:* "Create road from points".
   - *Modular 3D pieces:* "Add road piece" creates connectors at both ends; add more connectors for T-junctions and crossings. Touching connectors are joined automatically.
-- **Traffic lights:** "Create traffic intersection" places 4 lights (2 phases). Timings are on the intersection object. Exported to `signals.json` (controller type `lightsBasic`).
+- **Traffic lights:** "Create traffic intersection" places 4 lights (2 phases) with pole, head and three emissive lamps. Timings (green/yellow/all-red) are on the intersection object. Logic is exported to `signals.json` (controller type `lightsBasic`); the red/yellow/green lamp objects are switched in game by a small Lua extension shipped in the ZIP (`scripts/` and `lua/`). For your own models assign the lamp objects on the Traffic Light component.
+- **Road markings / emission:** transparent materials (road markings) are exported with alpha blending, emissive materials with an emissive map.
+- **Lamps:** the generated intersection has a pole with red/yellow/green lamp objects (emissive). A small Lua extension shipped in the mod (`lua/ge/extensions/unityToBeamNG/lights.lua`, started by `scripts/unity_to_beamng/modScript.lua`) shows only the lamp of the current signal state. Use your own models by assigning the lamp objects on each `BeamNGTrafficLight`.
+- **Road Architect:** the centre line is read from the road's `SplineN` node objects (and the spline itself, if available). Mark the `Road1` object (or press "Find Road Architect roads in scene").
+- **Road markings:** textures with alpha on marking-like materials are exported with alpha blending.
