@@ -13,16 +13,40 @@ namespace UnityToBeamNG
             return sv != null ? sv.pivot : Vector3.zero;
         }
 
-        public static void AddRoadToSelection()
+        public static int AddRoadToSelection()
         {
+            int added = 0;
             foreach (var go in Selection.gameObjects)
             {
-                if (go.GetComponent<BeamNGRoad>() != null) continue;
-                var road = Undo.AddComponent<BeamNGRoad>(go);
-                foreach (var mb in go.GetComponents<MonoBehaviour>())
-                    if (mb != null && mb != road && mb.GetType().FullName.IndexOf("Road", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                    { road.source = BeamNGRoadSource.RoadArchitect; break; }
+                // prefer the Road Architect road object (this object, a parent or a child)
+                GameObject target = null;
+                foreach (var mb in go.GetComponents<MonoBehaviour>()) if (BeamNGRoadExporter.IsRoadArchitectRoad(mb)) { target = go; break; }
+                if (target == null) foreach (var mb in go.GetComponentsInParent<MonoBehaviour>(true)) if (BeamNGRoadExporter.IsRoadArchitectRoad(mb)) { target = mb.gameObject; break; }
+                if (target == null) foreach (var mb in go.GetComponentsInChildren<MonoBehaviour>(true)) if (BeamNGRoadExporter.IsRoadArchitectRoad(mb)) { target = mb.gameObject; break; }
+                bool ra = target != null;
+                if (target == null) target = go;
+                if (target.GetComponent<BeamNGRoad>() != null) continue;
+                var road = Undo.AddComponent<BeamNGRoad>(target);
+                if (ra) road.source = BeamNGRoadSource.RoadArchitect;
+                added++;
             }
+            return added;
+        }
+
+        /// <summary>Adds a BeamNGRoad (Road Architect source) to every Road Architect road in the open scene.</summary>
+        public static int FindRoadArchitectRoads()
+        {
+            int added = 0;
+            foreach (var mb in Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+            {
+                if (mb == null || mb is BeamNGRoad || mb is BeamNGRoadPiece) continue;
+                if (!BeamNGRoadExporter.IsRoadArchitectRoad(mb)) continue;
+                if (mb.GetComponent<BeamNGRoad>() != null) continue;
+                var road = Undo.AddComponent<BeamNGRoad>(mb.gameObject);
+                road.source = BeamNGRoadSource.RoadArchitect;
+                added++;
+            }
+            return added;
         }
 
         public static void CreateRoadFromPoints()
