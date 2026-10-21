@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using UnityEngine;
 
 namespace UnityToBeamNG
 {
@@ -14,6 +15,7 @@ namespace UnityToBeamNG
         public string ExtrasDir;   // Root/extras (NOT zipped)
         public Func<string, float, bool> Progress;
         public bool Aborted;
+        public readonly Dictionary<Renderer, string> LampNames = new Dictionary<Renderer, string>();
         public List<string> RoadLines = new List<string>();
         public readonly Dictionary<BeamNGTrafficLight, string> SignalNames = new Dictionary<BeamNGTrafficLight, string>();
         public readonly List<string> Required = new List<string>(); // relative to LevelDir
@@ -30,6 +32,14 @@ namespace UnityToBeamNG
         public string Abs(string rel)
         {
             var p = Path.Combine(LevelDir, rel.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(p));
+            return p;
+        }
+
+        /// <summary>Absolute path below the mod root (next to levels/), e.g. lua/ge/extensions/x.lua</summary>
+        public string AbsRoot(string rel)
+        {
+            var p = Path.Combine(Root, rel.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(p));
             return p;
         }
