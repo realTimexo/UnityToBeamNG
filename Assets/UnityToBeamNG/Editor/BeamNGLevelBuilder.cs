@@ -104,16 +104,13 @@ namespace UnityToBeamNG
             var terLines = new List<string>();
             if (terrain != null)
             {
-                if (!string.IsNullOrEmpty(terrain.TextureSetName))
-                    terLines.Add(new JsonObj().Str("class", "TerrainMaterialTextureSet").Str("name", terrain.TextureSetName).Str("__parent", "Terrain")
-                        .Arr("baseTexSize", terrain.TextureSetSizes[0], terrain.TextureSetSizes[0])
-                        .Arr("macroTexSize", terrain.TextureSetSizes[1], terrain.TextureSetSizes[1])
-                        .Arr("detailTexSize", terrain.TextureSetSizes[2], terrain.TextureSetSizes[2]).ToString());
-                terLines.Add(new JsonObj().Str("class", "TerrainBlock").Str("name", "theTerrain").Str("__parent", "Terrain")
-                    .Str("terrainFile", c.VPath(TerrainResult.TerFile)).Str("materialTextureSet", terrain.TextureSetName ?? "")
+                var tb = new JsonObj().Str("class", "TerrainBlock").Str("name", "theTerrain").Str("__parent", "Terrain")
+                    .Str("terrainFile", c.VPath(TerrainResult.TerFile))
                     .Arr("position", terrain.PositionBeam.x, terrain.PositionBeam.y, terrain.PositionBeam.z)
                     .Arr("rotationMatrix", 1, 0, 0, 0, 1, 0, 0, 0, 1)
-                    .Num("squareSize", terrain.SquareSize).Num("maxHeight", terrain.MaxHeight).Bool("castShadows", true).ToString());
+                    .Num("squareSize", terrain.SquareSize).Num("maxHeight", terrain.MaxHeight).Bool("castShadows", true);
+                if (!string.IsNullOrEmpty(terrain.TextureSetName)) tb.Str("materialTextureSet", terrain.TextureSetName);
+                terLines.Add(tb.ToString());
             }
             if (terLines.Count > 0) WriteLines(c, MG + "Terrain/items.level.json", terLines);
 
