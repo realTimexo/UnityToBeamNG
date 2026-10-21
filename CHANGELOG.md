@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 (alpha)
+- Road Architect: detection via its `SplineN` node objects (works from Road1, the Spline or MainMeshes object) + spline sampling; diagnostic list of components when nothing is found.
+- Road markings: transparent/cutout materials are exported (translucent / alphaTest); emission exported as emissiveMap/emissiveFactor.
+- Traffic lights: poles with three emissive lamps, `signal_lamps.json` + Lua extension (`scripts/unity_to_beamng/modScript.lua`, `lua/ge/extensions/unityToBeamNG/lights.lua`) switch the lamps; ZIP now also contains `scripts/` and `lua/`.
+- Tool window: "Report an issue / bug on GitHub" button. README: download link.
 ## 0.3.0 (alpha)
 - Terrain textures: classic terrain materials with `diffuseMap`/`diffuseSize` per Unity layer. The PBR `TerrainMaterialTextureSet` mode is EXPERIMENTAL and off by default (BeamNG crashed with D3D12 'root cbv' when the set was not found).
 - Roads: Road Architect detection searches parents/children; new 'Find Road Architect roads in scene' button; fixed roads with a single point.
