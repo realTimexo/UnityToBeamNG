@@ -143,18 +143,57 @@ namespace UnityToBeamNG
             Selection.activeGameObject = root;
         }
 
+        static Material LampMaterial(string name, Color color, bool emissive)
+        {
+            const string dir = "Assets/UnityToBeamNG/Generated";
+            if (!AssetDatabase.IsValidFolder(dir))
+            {
+                if (!AssetDatabase.IsValidFolder("Assets/UnityToBeamNG")) AssetDatabase.CreateFolder("Assets", "UnityToBeamNG");
+                AssetDatabase.CreateFolder("Assets/UnityToBeamNG", "Generated");
+            }
+            var path = dir + "/" + name + ".mat";
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null) return existing;
+            var sh = Shader.Find("Standard") ?? Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Unlit/Color");
+            var m = new Material(sh) { name = name };
+            m.color = color;
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
+            if (emissive)
+            {
+                m.EnableKeyword("_EMISSION");
+                m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                if (m.HasProperty("_EmissionColor")) m.SetColor("_EmissionColor", color * 2f);
+            }
+            AssetDatabase.CreateAsset(m, path);
+            return m;
+        }
+
+        static Transform Part(PrimitiveType type, string name, Transform parent, Vector3 localPos, Vector3 scale, Material mat)
+        {
+            var go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            Object.DestroyImmediate(go.GetComponent<Collider>());
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localScale = scale;
+            go.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            return go.transform;
+        }
+
+        /// <summary>Pole + signal head with three emissive lamps. Lamps face the oncoming traffic (against the light's blue arrow).</summary>
         static void AddPole(Transform parent)
         {
-            var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            pole.name = "Pole"; Object.DestroyImmediate(pole.GetComponent<Collider>());
-            pole.transform.SetParent(parent, false);
-            pole.transform.localScale = new Vector3(0.2f, 2.2f, 0.2f);
-            pole.transform.localPosition = new Vector3(0f, 2.2f, 0f);
-            var head = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            head.name = "Head"; Object.DestroyImmediate(head.GetComponent<Collider>());
-            head.transform.SetParent(parent, false);
-            head.transform.localScale = new Vector3(0.45f, 1.2f, 0.35f);
-            head.transform.localPosition = new Vector3(0f, 4.6f, 0f);
+            var dark = LampMaterial("BeamNG_Signal_Dark", new Color(0.08f, 0.08f, 0.08f), false);
+            var red = LampMaterial("BeamNG_Signal_Red", new Color(1f, 0.05f, 0.05f), true);
+            var yellow = LampMaterial("BeamNG_Signal_Yellow", new Color(1f, 0.75f, 0f), true);
+            var green = LampMaterial("BeamNG_Signal_Green", new Color(0.05f, 1f, 0.2f), true);
+            Part(PrimitiveType.Cylinder, "Pole", parent, new Vector3(0f, 2.2f, 0f), new Vector3(0.18f, 2.2f, 0.18f), dark);
+            Part(PrimitiveType.Cube, "Head", parent, new Vector3(0f, 4.7f, 0f), new Vector3(0.5f, 1.45f, 0.35f), dark);
+            var tl = parent.GetComponent<BeamNGTrafficLight>();
+            var lampScale = new Vector3(0.32f, 0.32f, 0.12f);
+            tl.redLamp = Part(PrimitiveType.Sphere, "Lamp Red", parent, new Vector3(0f, 5.15f, -0.2f), lampScale, red);
+            tl.yellowLamp = Part(PrimitiveType.Sphere, "Lamp Yellow", parent, new Vector3(0f, 4.7f, -0.2f), lampScale, yellow);
+            tl.greenLamp = Part(PrimitiveType.Sphere, "Lamp Green", parent, new Vector3(0f, 4.25f, -0.2f), lampScale, green);
         }
     }
 }
