@@ -33,6 +33,7 @@ namespace UnityToBeamNG
         public bool collideAllByDefault = true;      // meshes without a collider still collide
 
         // --- Spawn ---
+        public bool driveOnLeft = false;             // left-hand traffic (info.json roadRules.rightHandDrive)
         public bool snapSpawnToGround = true;
         public float spawnClearance = 0.5f;          // meters above the ground that was found
         public string spawnObjectGid = "";           // persisted reference to the spawn GameObject
