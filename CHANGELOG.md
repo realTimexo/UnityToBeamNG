@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (alpha)
+- Terrain textures: `TerrainMaterialTextureSet` + `materialTextureSet` on the TerrainBlock, base/macro/detail/normal/roughness/AO/height slots with exact sizes (fixes the black terrain).
+- Road network: `BeamNGRoad` (child points or Road Architect) and `BeamNGRoadPiece` (modular 3D pieces with connectors) are exported as invisible DecalRoads; endpoints within 0.75 m are snapped together.
+- Traffic lights: `BeamNGTrafficIntersection` + `BeamNGTrafficLight`, one-button 4-way intersection, `signals.json`.
+- New tabs: Roads, Traffic. New option: left-hand traffic.
+
 ## 0.2.2 (alpha)
 - Fix: solid-color materials (e.g. a plain red Unity material) stayed white in BeamNG. BeamNG's TextureCooker rejects textures smaller than 16x16 ("Size must be a power of two and at least 16x16"). Solid color textures are now 16x16, and all exported textures are at least 16x16.
 - Collision mode now written as `Visible Mesh Final` (BeamNG logged a performance warning for `Visible Mesh`).
