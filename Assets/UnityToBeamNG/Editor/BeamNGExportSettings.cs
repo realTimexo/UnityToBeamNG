@@ -33,6 +33,7 @@ namespace UnityToBeamNG
         public bool collideAllByDefault = true;      // meshes without a collider still collide
 
         // --- Spawn ---
+        public bool terrainTextureSet = false;       // EXPERIMENTAL: PBR v1.5 terrain materials with a TerrainMaterialTextureSet (can crash BeamNG if the set is not found)
         public bool driveOnLeft = false;             // left-hand traffic (info.json roadRules.rightHandDrive)
         public bool snapSpawnToGround = true;
         public float spawnClearance = 0.5f;          // meters above the ground that was found
