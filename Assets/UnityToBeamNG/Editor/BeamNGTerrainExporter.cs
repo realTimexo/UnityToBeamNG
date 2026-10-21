@@ -252,7 +252,9 @@ namespace UnityToBeamNG
                 if (baseRel == null) baseRel = tex.ExportFlat(new Color32(110, 140, 80, 255), tdir, "flat_grass", BaseSz, ".color.png");
                 float tile = 10f;
                 if (tl != null && tl.tileSize.x > 0.01f) tile = tl.tileSize.x;
-                var o = new JsonObj().Str("class", "TerrainMaterial").Str("internalName", names[i])
+                string diffuseV1 = c.VPath(baseRel);
+                var o = new JsonObj().Str("class", "TerrainMaterial").Str("name", names[i]).Str("internalName", names[i])
+                    .Str("diffuseMap", diffuseV1).Num("diffuseSize", tile).Str("detailMap", c.VPath(grayD)).Num("detailSize", 4f).Num("detailStrength", 0f)
                     .Str("persistentId", GuidFor(c.Settings.levelName + "/" + names[i]))
                     .Str("annotation", "NATURE")
                     .Str("groundmodelName", tl != null ? GroundModelFor(tl.name) : "grass")
@@ -277,8 +279,18 @@ namespace UnityToBeamNG
             }
             File.WriteAllText(c.Abs("art/terrains/main.materials.json"), "{\n" + string.Join(",\n", entries) + "\n}\n", new UTF8Encoding(false));
             c.Require("art/terrains/main.materials.json");
-            res.TextureSetName = c.Settings.levelName + "_textureset";
-            res.TextureSetSizes = new[] { BaseSz, MacroSz, DetailSz };
+            if (c.Settings.terrainTextureSet)
+            {
+                // EXPERIMENTAL: where BeamNG expects the TerrainMaterialTextureSet is not documented.
+                // A TerrainBlock that points to a missing set crashed BeamNG (D3D12 assert), so this is opt-in.
+                res.TextureSetName = c.Settings.levelName + "_textureset";
+                res.TextureSetSizes = new[] { BaseSz, MacroSz, DetailSz };
+                var tsLine = new JsonObj().Str("class", "TerrainMaterialTextureSet").Str("name", res.TextureSetName)
+                    .Str("internalName", res.TextureSetName)
+                    .Arr("baseTexSize", BaseSz, BaseSz).Arr("macroTexSize", MacroSz, MacroSz).Arr("detailTexSize", DetailSz, DetailSz);
+                entries.Add(BeamNGJson.Q(res.TextureSetName) + ":" + tsLine);
+                File.WriteAllText(c.Abs("art/terrains/main.materials.json"), "{\n" + string.Join(",\n", entries) + "\n}\n", new UTF8Encoding(false));
+            }
 
             // --- Fallback import: 16-bit PNG + values (not in the mod ZIP) ---
             Directory.CreateDirectory(c.ExtrasDir);
@@ -293,7 +305,7 @@ namespace UnityToBeamNG
             if (Mathf.Abs((maxX - minX) - (maxZ - minZ)) > 0.01f) r.Add(ReportStatus.WARNING, "Terrain", "Terrain is not square: empty areas are marked as holes (no collision).");
             if (holesTotal > 0) r.Add(ReportStatus.PASS, "Terrain", $"{holesTotal:N0} sample(s) marked as hole (255) (hole mask / empty areas).");
             r.Add(ReportStatus.WARNING, "Terrain", ".ter file follows the docs (version 9). Not documented and therefore UNVERIFIED: material name encoding and row order.", "Load the map: if the terrain is missing or flipped, use extras/theTerrain_heightmap16.png with the World Editor terrain importer.");
-            r.Add(ReportStatus.WARNING, "Terrain", "Terrain textures: one base color per Unity layer (1024px, tile size from the layer); macro/detail/normal/roughness/AO/height are neutral. Not yet confirmed in game.", "If still black, send beamng.log.");
+            r.Add(ReportStatus.WARNING, "Terrain", "Terrain textures: classic (v1) terrain material per Unity layer (diffuseMap + size). The PBR texture-set mode is experimental and off by default. Not yet confirmed in game.", "If still black, send beamng.log.");
             if (terrains.Exists(t => t.terrainData.treeInstanceCount > 0 || t.terrainData.detailPrototypes.Length > 0))
                 r.Add(ReportStatus.WARNING, "Vegetation", "Terrain trees/details are not exported.", "Vegetation is planned for a later version.");
             return res;
