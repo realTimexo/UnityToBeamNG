@@ -15,6 +15,8 @@ namespace UnityToBeamNG
         public float Side;
         public Vector3 PositionBeam;           // corner (min x, min y, base height) in BeamNG coordinates
         public List<string> MaterialNames = new List<string>();
+        public string TextureSetName;
+        public int[] TextureSetSizes;           // base, macro, detail
         public const string TerFile = "theTerrain.ter";
     }
 
@@ -221,22 +223,62 @@ namespace UnityToBeamNG
             c.Require("theTerrain.terrain.json");
 
             // --- Terrain materials + textures ---
+            // BeamNG's PBR terrain pipeline needs a TerrainMaterialTextureSet (fixed slot sizes) and, per material,
+            // base + macro + detail textures for every group, each exactly the slot size (PNG, power of two).
+            const int BaseSz = 1024, MacroSz = 512, DetailSz = 512;
+            string tdir = "art/terrains";
+            string flatNormal = tex.ExportFlat(new Color32(128, 128, 255, 255), tdir, "flat_normal", DetailSz, ".normal.png");
+            string flatNormalM = tex.ExportFlat(new Color32(128, 128, 255, 255), tdir, "flat_normal", MacroSz, ".normal.png");
+            string flatNormalB = tex.ExportFlat(new Color32(128, 128, 255, 255), tdir, "flat_normal", BaseSz, ".normal.png");
+            string grayD = tex.ExportFlat(new Color32(128, 128, 128, 255), tdir, "flat_gray", DetailSz, ".color.png");
+            string grayM = tex.ExportFlat(new Color32(128, 128, 128, 255), tdir, "flat_gray", MacroSz, ".color.png");
+            string rough = tex.ExportFlat(new Color32(200, 200, 200, 255), tdir, "flat_rough", BaseSz, ".data.png");
+            string roughM = tex.ExportFlat(new Color32(200, 200, 200, 255), tdir, "flat_rough", MacroSz, ".data.png");
+            string roughD = tex.ExportFlat(new Color32(200, 200, 200, 255), tdir, "flat_rough", DetailSz, ".data.png");
+            string white = tex.ExportFlat(new Color32(255, 255, 255, 255), tdir, "flat_white", BaseSz, ".data.png");
+            string whiteM = tex.ExportFlat(new Color32(255, 255, 255, 255), tdir, "flat_white", MacroSz, ".data.png");
+            string whiteD = tex.ExportFlat(new Color32(255, 255, 255, 255), tdir, "flat_white", DetailSz, ".data.png");
+            string midB = tex.ExportFlat(new Color32(128, 128, 128, 255), tdir, "flat_height", BaseSz, ".data.png");
+            string midM = tex.ExportFlat(new Color32(128, 128, 128, 255), tdir, "flat_height", MacroSz, ".data.png");
+            string midD = tex.ExportFlat(new Color32(128, 128, 128, 255), tdir, "flat_height", DetailSz, ".data.png");
+
             var entries = new List<string>();
             for (int i = 0; i < names.Count; i++)
             {
                 var tl = layers[i];
-                var o = new JsonObj().Str("name", names[i]).Str("internalName", names[i]).Str("class", "TerrainMaterial")
-                    .Str("persistentId", GuidFor(c.Settings.levelName + "/" + names[i]))
-                    .Str("groundmodelName", tl != null ? GroundModelFor(tl.name) : "grass");
+                string baseRel = null;
                 if (tl != null && tl.diffuseTexture != null)
-                {
-                    int sz; var rel = tex.ExportColor(tl.diffuseTexture, "art/terrains", out sz);
-                    if (rel != null) { o.Str("baseColorBaseTex", c.VPath(rel)); o.Num("baseColorBaseTexSize", sz); }
-                }
+                    baseRel = tex.ExportSized(tl.diffuseTexture, tdir, BaseSz, ".color.png", false);
+                if (baseRel == null) baseRel = tex.ExportFlat(new Color32(110, 140, 80, 255), tdir, "flat_grass", BaseSz, ".color.png");
+                float tile = 10f;
+                if (tl != null && tl.tileSize.x > 0.01f) tile = tl.tileSize.x;
+                var o = new JsonObj().Str("class", "TerrainMaterial").Str("internalName", names[i])
+                    .Str("persistentId", GuidFor(c.Settings.levelName + "/" + names[i]))
+                    .Str("annotation", "NATURE")
+                    .Str("groundmodelName", tl != null ? GroundModelFor(tl.name) : "grass")
+                    .Raw("macroDistances", "[0,10,100,3000]").Raw("detailDistances", "[0,0,30,60]")
+                    .Raw("macroDistAtten", "[1,1]").Raw("detailDistAtten", "[1,1]")
+                    .Str("baseColorBaseTex", c.VPath(baseRel)).Num("baseColorBaseTexSize", tile)
+                    .Str("baseColorMacroTex", c.VPath(grayM)).Num("baseColorMacroTexSize", 64).Raw("baseColorMacroStrength", "[0,0]")
+                    .Str("baseColorDetailTex", c.VPath(grayD)).Num("baseColorDetailTexSize", 4).Raw("baseColorDetailStrength", "[0,0]")
+                    .Str("normalBaseTex", c.VPath(flatNormalB)).Num("normalBaseTexSize", tile)
+                    .Str("normalMacroTex", c.VPath(flatNormalM)).Num("normalMacroTexSize", 64).Raw("normalMacroStrength", "[0,0]")
+                    .Str("normalDetailTex", c.VPath(flatNormal)).Num("normalDetailTexSize", 4).Raw("normalDetailStrength", "[0,0]")
+                    .Str("roughnessBaseTex", c.VPath(rough)).Num("roughnessBaseTexSize", tile)
+                    .Str("roughnessMacroTex", c.VPath(roughM)).Num("roughnessMacroTexSize", 64).Raw("roughnessMacroStrength", "[0,0]")
+                    .Str("roughnessDetailTex", c.VPath(roughD)).Num("roughnessDetailTexSize", 4).Raw("roughnessDetailStrength", "[0,0]")
+                    .Str("aoBaseTex", c.VPath(white)).Num("aoBaseTexSize", tile)
+                    .Str("aoMacroTex", c.VPath(whiteM)).Num("aoMacroTexSize", 64).Raw("aoMacroStrength", "[0,0]")
+                    .Str("aoDetailTex", c.VPath(whiteD)).Num("aoDetailTexSize", 4).Raw("aoDetailStrength", "[0,0]")
+                    .Str("heightBaseTex", c.VPath(midB)).Num("heightBaseTexSize", tile)
+                    .Str("heightMacroTex", c.VPath(midM)).Num("heightMacroTexSize", 64).Raw("heightMacroStrength", "[0,0]")
+                    .Str("heightDetailTex", c.VPath(midD)).Num("heightDetailTexSize", 4).Raw("heightDetailStrength", "[0,0]");
                 entries.Add(BeamNGJson.Q(names[i]) + ":" + o);
             }
             File.WriteAllText(c.Abs("art/terrains/main.materials.json"), "{\n" + string.Join(",\n", entries) + "\n}\n", new UTF8Encoding(false));
             c.Require("art/terrains/main.materials.json");
+            res.TextureSetName = c.Settings.levelName + "_textureset";
+            res.TextureSetSizes = new[] { BaseSz, MacroSz, DetailSz };
 
             // --- Fallback import: 16-bit PNG + values (not in the mod ZIP) ---
             Directory.CreateDirectory(c.ExtrasDir);
@@ -251,7 +293,7 @@ namespace UnityToBeamNG
             if (Mathf.Abs((maxX - minX) - (maxZ - minZ)) > 0.01f) r.Add(ReportStatus.WARNING, "Terrain", "Terrain is not square: empty areas are marked as holes (no collision).");
             if (holesTotal > 0) r.Add(ReportStatus.PASS, "Terrain", $"{holesTotal:N0} sample(s) marked as hole (255) (hole mask / empty areas).");
             r.Add(ReportStatus.WARNING, "Terrain", ".ter file follows the docs (version 9). Not documented and therefore UNVERIFIED: material name encoding and row order.", "Load the map: if the terrain is missing or flipped, use extras/theTerrain_heightmap16.png with the World Editor terrain importer.");
-            r.Add(ReportStatus.WARNING, "Terrain", "TerrainMaterial JSON keys are not documented (best guess); textures may be missing in game.", "Check/reassign terrain materials in the Terrain Painter.");
+            r.Add(ReportStatus.WARNING, "Terrain", "Terrain textures: one base color per Unity layer (1024px, tile size from the layer); macro/detail/normal/roughness/AO/height are neutral. Not yet confirmed in game.", "If still black, send beamng.log.");
             if (terrains.Exists(t => t.terrainData.treeInstanceCount > 0 || t.terrainData.detailPrototypes.Length > 0))
                 r.Add(ReportStatus.WARNING, "Vegetation", "Terrain trees/details are not exported.", "Vegetation is planned for a later version.");
             return res;
