@@ -13,6 +13,11 @@ namespace UnityToBeamNG
     {
         [Tooltip("Lights with the same phase number are green together.")]
         public int phase = 0;
+        [Header("Lamps (optional): objects with a mesh that is shown only in the matching state")]
+        [Tooltip("Object (with MeshRenderer, e.g. an emissive red sphere) that is visible while the signal is red.")]
+        public Transform redLamp;
+        public Transform yellowLamp;
+        public Transform greenLamp;
         [Tooltip("Experimental: also link the Unity meshes below this object as the visible signal (signalInstance). Only useful for BeamNG stock signal models.")]
         public bool linkVisual = false;
 
