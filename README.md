@@ -101,7 +101,7 @@ If this tool saves you time, you can support its development:
 
 Copyright (c) 2026 Timexo. All rights reserved. See [LICENSE](LICENSE).
 
-In short: free to use for exporting your own maps (including commercial ones). You may not redistribute or sell the code. If you show the tool or maps made with it on social media or elsewhere, link to the project: **[link to site]**.
+In short: free to use for exporting your own maps (including commercial ones). You may not redistribute or sell the code. If you show the tool or maps made with it on social media or elsewhere, link to the project: **https://github.com/realTimexo/UnityToBeamNG**.
 
 Maps you export belong to you. This project is not affiliated with BeamNG GmbH or Unity Technologies.
 
