@@ -151,7 +151,10 @@ namespace UnityToBeamNG
                 "2) Own centre line: 'Create road from points' - move the child points along your road.\n" +
                 "3) Modular 3D road pieces: select a piece and press 'Add road piece': 2 connectors are created at its ends (blue arrow points OUT). " +
                 "For crossings/T-junctions add more connectors and move them to the arms. Pieces whose connectors touch are linked automatically.", MessageType.Info);
-            if (GUILayout.Button("Mark selected as BeamNG road (Road Architect / own object)", GUILayout.Height(24))) BeamNGRoadTools.AddRoadToSelection();
+            if (GUILayout.Button("Find Road Architect roads in scene (automatic)", GUILayout.Height(28)))
+                EditorUtility.DisplayDialog("Roads", BeamNGRoadTools.FindRoadArchitectRoads() + " road(s) marked.", "OK");
+            if (GUILayout.Button("Mark selected as BeamNG road (Road Architect / own object)", GUILayout.Height(24)))
+                EditorUtility.DisplayDialog("Roads", BeamNGRoadTools.AddRoadToSelection() + " road(s) marked.", "OK");
             if (GUILayout.Button("Create road from points", GUILayout.Height(24))) BeamNGRoadTools.CreateRoadFromPoints();
             EditorGUILayout.Space();
             if (GUILayout.Button("Add road piece (selected model)", GUILayout.Height(24))) BeamNGRoadTools.AddPieceToSelection();
@@ -179,6 +182,7 @@ namespace UnityToBeamNG
         {
             s.exportTerrain = EditorGUILayout.ToggleLeft("Terrain (.ter + terrain materials)", s.exportTerrain);
             s.exportMeshes = EditorGUILayout.ToggleLeft("Static meshes (.dae, TSStatic) incl. materials/textures", s.exportMeshes);
+            s.terrainTextureSet = EditorGUILayout.ToggleLeft("EXPERIMENTAL: terrain PBR texture set (may crash BeamNG, off by default)", s.terrainTextureSet);
             s.collideAllByDefault = EditorGUILayout.ToggleLeft("All meshes collide (otherwise only with a collider)", s.collideAllByDefault);
             EditorGUILayout.HelpBox("Can be overridden per object with the 'BeamNG/Collision Settings' component (collision: Auto/None/VisibleMesh/Bounds, exclude object).", MessageType.None);
             EditorGUILayout.Space();
