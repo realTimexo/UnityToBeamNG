@@ -47,8 +47,14 @@ namespace UnityToBeamNG
                     }
                     if (rw > 0.5f) w = rw;
                 }
-                else pts = road.ChildPointPositions();
-                if (pts.Count < 2) { r.Add(ReportStatus.WARNING, "Roads", $"'{road.name}': fewer than 2 points, skipped.", ""); continue; }
+                else pts = Dedupe(road.ChildPointPositions());
+                if (pts.Count < 2 && road.source == BeamNGRoadSource.ChildPoints)
+                {
+                    // the user may have marked a mesh object that belongs to a Road Architect road: look around it
+                    float rw2; var alt = FromRoadArchitect(road, out rw2);
+                    if (alt != null && alt.Count >= 2) { pts = alt; if (rw2 > 0.5f) w = rw2; }
+                }
+                if (pts.Count < 2) { r.Add(ReportStatus.WARNING, "Roads", $"'{road.name}': fewer than 2 distinct points, skipped (a mesh object has all children at one position).", "Use 'Find Road Architect roads in scene' in the Roads tab, or 'Create road from points'."); continue; }
                 list.Add(new RoadPath
                 {
                     Name = BeamNGEditorUtilities.SafeId(road.name), Points = Dedupe(pts), Width = w, Drivability = road.drivability,
@@ -178,10 +184,33 @@ namespace UnityToBeamNG
             return null;
         }
 
+        static IEnumerable<MonoBehaviour> Candidates(GameObject go)
+        {
+            foreach (var m in go.GetComponents<MonoBehaviour>()) yield return m;
+            foreach (var m in go.GetComponentsInParent<MonoBehaviour>(true)) yield return m;
+            foreach (var m in go.GetComponentsInChildren<MonoBehaviour>(true)) yield return m;
+        }
+
+        /// <summary>True if the component looks like a Road Architect road (has a spline with nodes).</summary>
+        public static bool IsRoadArchitectRoad(Component comp)
+        {
+            if (comp == null) return false;
+            try
+            {
+                var spline = Member(comp, "spline", "mSpline", "Spline");
+                if (spline == null) return false;
+                var nl = Member(spline, "mNodes", "nodes", "Nodes") as IEnumerable;
+                if (nl == null) return false;
+                int n = 0; foreach (var x in nl) n++;
+                return n >= 2;
+            }
+            catch { return false; }
+        }
+
         static List<Vector3> FromRoadArchitect(BeamNGRoad road, out float width)
         {
             width = -1f;
-            foreach (var comp in road.GetComponents<MonoBehaviour>())
+            foreach (var comp in Candidates(road.gameObject))
             {
                 if (comp == null || comp == road) continue;
                 try
