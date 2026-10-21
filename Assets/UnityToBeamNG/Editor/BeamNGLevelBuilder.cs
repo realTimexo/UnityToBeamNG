@@ -82,6 +82,7 @@ namespace UnityToBeamNG
             };
             if (terrain != null) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Terrain").Str("__parent", "MissionGroup").ToString());
             if (staticLines != null && staticLines.Count > 0) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Buildings").Str("__parent", "MissionGroup").ToString());
+            if (c.RoadLines.Count > 0) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Roads").Str("__parent", "MissionGroup").ToString());
             groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Gameplay").Str("__parent", "MissionGroup").ToString());
             WriteLines(c, MG + "items.level.json", groups);
 
@@ -103,8 +104,13 @@ namespace UnityToBeamNG
             var terLines = new List<string>();
             if (terrain != null)
             {
+                if (!string.IsNullOrEmpty(terrain.TextureSetName))
+                    terLines.Add(new JsonObj().Str("class", "TerrainMaterialTextureSet").Str("name", terrain.TextureSetName).Str("__parent", "Terrain")
+                        .Arr("baseTexSize", terrain.TextureSetSizes[0], terrain.TextureSetSizes[0])
+                        .Arr("macroTexSize", terrain.TextureSetSizes[1], terrain.TextureSetSizes[1])
+                        .Arr("detailTexSize", terrain.TextureSetSizes[2], terrain.TextureSetSizes[2]).ToString());
                 terLines.Add(new JsonObj().Str("class", "TerrainBlock").Str("name", "theTerrain").Str("__parent", "Terrain")
-                    .Str("terrainFile", c.VPath(TerrainResult.TerFile))
+                    .Str("terrainFile", c.VPath(TerrainResult.TerFile)).Str("materialTextureSet", terrain.TextureSetName ?? "")
                     .Arr("position", terrain.PositionBeam.x, terrain.PositionBeam.y, terrain.PositionBeam.z)
                     .Arr("rotationMatrix", 1, 0, 0, 0, 1, 0, 0, 0, 1)
                     .Num("squareSize", terrain.SquareSize).Num("maxHeight", terrain.MaxHeight).Bool("castShadows", true).ToString());
@@ -113,6 +119,9 @@ namespace UnityToBeamNG
 
             // --- Buildings ---
             if (staticLines != null && staticLines.Count > 0) WriteLines(c, MG + "Buildings/items.level.json", staticLines);
+
+            // --- Roads (invisible DecalRoads = AI navigation network) ---
+            if (c.RoadLines.Count > 0) WriteLines(c, MG + "Roads/items.level.json", c.RoadLines);
 
             // --- Gameplay: Spawnpunkte ---
             var gp = new List<string>();
@@ -142,6 +151,7 @@ namespace UnityToBeamNG
                 .Raw("size", BeamNGJson.A(Mathf.Round(size), Mathf.Round(size)))
                 .Raw("previews", BeamNGJson.AS(new[] { "preview.png" }))
                 .Raw("spawnPoints", "[" + string.Join(",", spawnArr) + "]");
+            if (s.driveOnLeft) info.Raw("roadRules", new JsonObj().Bool("rightHandDrive", true).ToString());
             File.WriteAllText(c.Abs("info.json"), info.ToString(), new UTF8Encoding(false));
             c.Require("info.json");
 
