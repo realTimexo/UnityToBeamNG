@@ -26,7 +26,7 @@ namespace UnityToBeamNG
     [Serializable]
     public class ExportManifest
     {
-        public string tool = "Unity to BeamNG 0.2.2";
+        public string tool = "Unity to BeamNG 0.3.0";
         public string unityVersion;
         public string levelName;
         public string mapName;
@@ -79,6 +79,9 @@ namespace UnityToBeamNG
                 var reg = new BeamNGMaterialRegistry();
                 var tex = new BeamNGTextureExporter(ctx);
                 var manifest = new ExportManifest { unityVersion = Application.unityVersion, levelName = s.levelName, mapName = s.mapName, author = s.author };
+
+                BeamNGSignalExporter.Export(ctx);
+                ctx.RoadLines = BeamNGRoadExporter.BuildLines(BeamNGRoadExporter.Collect(r));
 
                 TerrainResult terrain = null;
                 if (s.exportTerrain && scan.Terrains.Count > 0)
