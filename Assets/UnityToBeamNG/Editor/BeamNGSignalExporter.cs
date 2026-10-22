@@ -85,7 +85,7 @@ namespace UnityToBeamNG
 
                     var lamp = new JsonObj().Str("name", name)
                         .Num("phaseIndex", phaseKeys.IndexOf(l.phase)).Num("phaseCount", phaseCount)
-                        .Num("green", inter.greenSeconds).Num("yellow", inter.yellowSeconds).Num("allRed", inter.allRedSeconds);
+                        .Num("greenSec", inter.greenSeconds).Num("yellowSec", inter.yellowSeconds).Num("allRedSec", inter.allRedSeconds);
                     bool anyLamp = false;
                     anyLamp |= AddLamp(c, lamp, "red", l.redLamp, name);
                     anyLamp |= AddLamp(c, lamp, "yellow", l.yellowLamp, name);
