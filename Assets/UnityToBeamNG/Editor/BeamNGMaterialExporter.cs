@@ -43,7 +43,14 @@ namespace UnityToBeamNG
             return relDir + "/" + n + suffix;
         }
 
-        /// <summary>Base color texture into relDir. Returns the path relative to the level, or null.</summary>
+        /// <summary>Info about the alpha channel of the last exported color texture (per relative path).</summary>
+        public readonly Dictionary<string, float> AlphaCoverage = new Dictionary<string, float>(); // fraction of texels with alpha < 0.98
+        public readonly Dictionary<string, string> OpacityFiles = new Dictionary<string, string>();
+
+        /// <summary>Base color texture into relDir. Returns the path relative to the level, or null.
+        /// BeamNG's texture cooker treats *.color.png as RGB (alpha is dropped), so a texture with an alpha channel
+        /// is split: the color PNG is opaque (colors bled into transparent areas) and the alpha goes to a separate
+        /// *.dataR.png opacity map (see OpacityFor).</summary>
         public string ExportColor(Texture src, string relDir, out int exportedSize)
         {
             exportedSize = 0;
@@ -53,7 +60,6 @@ namespace UnityToBeamNG
             if (cache.TryGetValue(key, out rel)) { exportedSize = Mathf.Min(Mathf.ClosestPowerOfTwo(Mathf.Max(16, Mathf.Max(src.width, src.height))), c.Settings.maxTextureSize); return rel; }
             try
             {
-                // Power-of-two size, capped at the max texture size (safest for BeamNG's texture pipeline).
                 int w = Mathf.Clamp(Mathf.ClosestPowerOfTwo(Mathf.Max(16, src.width)), 16, c.Settings.maxTextureSize);
                 int h = Mathf.Clamp(Mathf.ClosestPowerOfTwo(Mathf.Max(16, src.height)), 16, c.Settings.maxTextureSize);
                 var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
@@ -65,7 +71,30 @@ namespace UnityToBeamNG
                 t2.Apply();
                 RenderTexture.active = prev;
                 RenderTexture.ReleaseTemporary(rt);
+
+                // alpha analysis
+                var px = t2.GetPixels32();
+                int semi = 0;
+                for (int i = 0; i < px.Length; i++) if (px[i].a < 250) semi++;
+                float coverage = semi / (float)px.Length;
                 rel = UniqueFile(BeamNGEditorUtilities.SafeId(src.name), relDir, ".color.png");
+                if (coverage > 0.0005f)
+                {
+                    // opacity map (red channel = alpha)
+                    var op = new Color32[px.Length];
+                    for (int i = 0; i < px.Length; i++) { byte a = px[i].a; op[i] = new Color32(a, a, a, 255); }
+                    var topac = new Texture2D(w, h, TextureFormat.RGBA32, false, true);
+                    topac.SetPixels32(op);
+                    var orel = UniqueFile(BeamNGEditorUtilities.SafeId(src.name) + "_opacity", relDir, ".dataR.png");
+                    File.WriteAllBytes(c.Abs(orel), topac.EncodeToPNG());
+                    Object.DestroyImmediate(topac);
+                    c.Require(orel);
+                    OpacityFiles[rel] = orel;
+                    BleedColors(px, w, h);
+                    t2.SetPixels32(px);
+                    t2.Apply();
+                }
+                AlphaCoverage[rel] = coverage;
                 File.WriteAllBytes(c.Abs(rel), t2.EncodeToPNG());
                 Object.DestroyImmediate(t2);
                 c.Require(rel);
@@ -78,6 +107,46 @@ namespace UnityToBeamNG
                 c.Report.Add(ReportStatus.WARNING, "Texture", $"Texture '{src.name}' could not be exported: {e.Message}", "Check the texture import settings.");
                 return null;
             }
+        }
+
+        /// <summary>Opacity map written next to a color texture that has alpha, or null.</summary>
+        public string OpacityFor(string colorRel)
+        {
+            string o; return colorRel != null && OpacityFiles.TryGetValue(colorRel, out o) ? o : null;
+        }
+
+        /// <summary>Makes all texels opaque and spreads the colors of visible texels into transparent ones (no dark/black fringes). Works in place.</summary>
+        static void BleedColors(Color32[] px, int w, int h)
+        {
+            var known = new bool[px.Length];
+            for (int i = 0; i < px.Length; i++) known[i] = px[i].a >= 128;
+            for (int pass = 0; pass < 12; pass++)
+            {
+                bool any = false;
+                var nk = (bool[])known.Clone();
+                var np = (Color32[])px.Clone();
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < w; x++)
+                    {
+                        int i = y * w + x;
+                        if (known[i]) continue;
+                        int r = 0, g = 0, b = 0, n = 0;
+                        for (int dy = -1; dy <= 1; dy++)
+                            for (int dx = -1; dx <= 1; dx++)
+                            {
+                                int xx = x + dx, yy = y + dy;
+                                if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+                                int j = yy * w + xx;
+                                if (!known[j]) continue;
+                                r += px[j].r; g += px[j].g; b += px[j].b; n++;
+                            }
+                        if (n > 0) { np[i] = new Color32((byte)(r / n), (byte)(g / n), (byte)(b / n), 255); nk[i] = true; any = true; }
+                    }
+                System.Array.Copy(np, px, px.Length);
+                known = nk;
+                if (!any) break;
+            }
+            for (int i = 0; i < px.Length; i++) { var q = px[i]; px[i] = new Color32(q.r, q.g, q.b, 255); }
         }
 
 
@@ -165,6 +234,11 @@ namespace UnityToBeamNG
             return false;
         }
 
+        static bool HasAlphaPixels(BeamNGTextureExporter tex, string colorRel)
+        {
+            float cov; return tex.AlphaCoverage.TryGetValue(colorRel, out cov) && cov > 0.0005f;
+        }
+
         static float FindFloat(Material m, float def, params string[] props)
         {
             foreach (var p in props) if (m.HasProperty(p)) return m.GetFloat(p);
@@ -182,7 +256,7 @@ namespace UnityToBeamNG
         {
             if (reg.Materials.Count == 0 && !reg.UsesMissing) return;
             var entries = new List<string>();
-            int tiled = 0, transparent = 0, cutouts = 0, normals = 0, emissive = 0, tinted = 0;
+            int tiled = 0, transparent = 0, cutouts = 0, normals = 0, emissive = 0, tinted = 0, noAlpha = 0, opacityMaps = 0;
 
             foreach (var m in reg.Materials)
             {
@@ -207,7 +281,17 @@ namespace UnityToBeamNG
                 bool blend = m.renderQueue >= 3000 || mode >= 2f || m.IsKeywordEnabled("_ALPHABLEND_ON") || m.IsKeywordEnabled("_ALPHAPREMULTIPLY_ON");
                 bool cutout = !blend && (m.renderQueue >= 2450 || Mathf.Approximately(mode, 1f) || m.IsKeywordEnabled("_ALPHATEST_ON"));
                 if (!blend && !cutout && mainTex != null && HasAlpha(mainTex) && LooksLikeMarking(name)) blend = true;
+                string opacityRel = mainTex != null ? tex.OpacityFor(colorRel) : null;
+                float tintAlpha = Mathf.Clamp01(tint.a);
+                // Sign-like textures (alpha almost binary) look better and sort correctly as alpha test.
+                if (blend && opacityRel != null && tintAlpha > 0.99f && !LooksLikeMarking(name)) { blend = false; cutout = true; }
+                if (opacityRel == null && (blend || cutout) && mainTex != null && !HasAlphaPixels(tex, colorRel))
+                {
+                    // no alpha in the texture: the transparent render mode would only make the object see-through/black
+                    if (tintAlpha > 0.99f) { blend = false; cutout = false; noAlpha++; }
+                }
                 if (blend) transparent++; else if (cutout) cutouts++;
+                bool doubleSided = m.HasProperty("_Cull") && Mathf.Approximately(m.GetFloat("_Cull"), 0f);
 
                 // Plain string / number values (an array-valued "baseColorMap" made BeamNG ignore the texture).
                 var stage = new JsonObj()
@@ -215,6 +299,7 @@ namespace UnityToBeamNG
                     .Arr("baseColorFactor", 1f, 1f, 1f, 1f)
                     .Num("metallicFactor", metallic)
                     .Num("roughnessFactor", 1f - smooth);
+                if (opacityRel != null && (blend || cutout)) { stage.Str("opacityMap", c.VPath(opacityRel)); opacityMaps++; }
                 // emission (e.g. lamps of traffic lights)
                 if (m.IsKeywordEnabled("_EMISSION") && m.HasProperty("_EmissionColor"))
                 {
@@ -235,8 +320,9 @@ namespace UnityToBeamNG
                 }
                 var mat = new JsonObj()
                     .Str("name", name).Str("class", "Material").Str("mapTo", name).Num("version", 1.5f);
-                if (blend) mat.Bool("translucent", true).Str("translucentBlendOp", "LerpAlpha").Bool("translucentZWrite", false);
+                if (blend) mat.Bool("translucent", true).Str("translucentBlendOp", "LerpAlpha").Bool("translucentZWrite", true);
                 else if (cutout) mat.Bool("alphaTest", true).Num("alphaRef", Mathf.Clamp(m.HasProperty("_Cutoff") ? m.GetFloat("_Cutoff") * 255f : 127f, 1f, 254f));
+                if (doubleSided) mat.Bool("doubleSided", true);
                 mat.Raw("Stages", "[" + stage + ",{},{},{}]");
                 entries.Add(BeamNGJson.Q(name) + ":" + mat);
             }
@@ -261,6 +347,8 @@ namespace UnityToBeamNG
             c.Report.Add(ReportStatus.WARNING, "Material", "Material JSON follows the docs example (version 1.5) but has not been verified in game.", "Check the BeamNG log for material errors on first load.");
             if (normals > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{normals} material(s) with a normal map: normal maps are NOT transferred (encoding unreliable).", "Add normal maps manually as *.normal.png.");
             if (tiled > 0) c.Report.Add(ReportStatus.PASS, "Material", $"{tiled} material(s) with texture tiling/offset: baked into the DAE UVs.");
+            if (opacityMaps > 0) c.Report.Add(ReportStatus.PASS, "Material", $"{opacityMaps} material(s) with an alpha texture: color PNG is opaque, alpha exported as separate opacityMap (*.dataR.png). BeamNG's texture cooker drops alpha of *.color.png (black background otherwise).");
+            if (noAlpha > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{noAlpha} material(s) use a transparent render mode but their texture has no alpha channel: exported opaque.", "Use a PNG with a transparent background (or set the material to Opaque).");
             if (transparent > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{transparent} transparent material(s) exported with alpha blending (translucent/LerpAlpha, e.g. road markings); untested in game.", "");
             if (cutouts > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{cutouts} cutout material(s) exported with alpha test; untested in game.", "");
             if (emissive > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{emissive} material(s) with emission exported (emissiveMap/emissiveFactor); untested in game.", "");
