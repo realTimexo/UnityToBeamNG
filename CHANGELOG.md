@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.2 (alpha)
+- Fix (from beamng.log): meshes whose name ends in a number (`Cylinder_001`, `Object_7` ...) were rejected by BeamNG with "Shape with invalid detail levels" (Torque reads a trailing number as detail-level size) - this made stop sign, traffic lights and other models invisible. DAE node names now never end in a digit.
+- Fix (from beamng.log): materials named only with digits (`1`, `3`, `8`, typical for FBX buildings) failed with "Object name cannot start with a digit" / "Unable to find material" -> houses without textures. Names starting with a digit now get the prefix `n_`.
+- Fix: traffic-light lamp Lua extension crashed every frame (`green` was both a duration and the lamp list). Durations renamed to `greenSec/yellowSec/allRedSec`. modScript now uses the documented `load()` / `setExtensionUnloadMode()`.
+- Meshes with more submeshes than materials use the last material (like Unity) instead of the grey missing_material.
+- Fix: structure check compared the DAE material id (`<name>-material`) with main.materials.json and aborted the export; it now compares the material name.
+- Fix: transparent materials had a black background in BeamNG. BeamNG's texture cooker drops the alpha channel of `*.color.png`. Textures with alpha are now split: opaque color PNG (colors bled into transparent areas) + separate grayscale `*.opacity.dataR.png` written as `opacityMap`. Sign-like (binary alpha) textures use alpha test, soft ones (markings, glass) use translucent + Z-write. `doubleSided` is exported for materials with Render Face = Both (`_Cull` = 0).
+- Fix: DAE ids - material ids are now `<name>-material` so they can never collide with the mesh/node id (a model whose mesh and material share a name, typical for Blender exports, could make BeamNG drop the object).
+- New: `SkinnedMeshRenderer` (FBX/Blender models with an armature or shape keys) are baked in their current pose and exported as static meshes instead of being skipped.
+- Report: lists every renderer that was NOT exported (disabled / LOD1+ ...), plus a note for materials set to a transparent render mode without alpha in the texture.
+- README: how to set up intersections, signals and AI traffic.
+
 ## 0.3.1 (alpha)
 - Road Architect: detection via its `SplineN` node objects (works from Road1, the Spline or MainMeshes object) + spline sampling; diagnostic list of components when nothing is found.
 - Road markings: transparent/cutout materials are exported (translucent / alphaTest); emission exported as emissiveMap/emissiveFactor.
