@@ -7,11 +7,9 @@ namespace UnityToBeamNG
         public const string ExtensionPath = "lua/ge/extensions/unityToBeamNG/lights.lua";
 
         public const string ModScript = @"-- Unity to BeamNG: loads the traffic light lamp extension (only acts on levels that ship signal_lamps.json)
-pcall(function() extensions.load('unityToBeamNG_lights') end)
-pcall(function() if setExtensionUnloadMode then setExtensionUnloadMode('unityToBeamNG_lights', 'manual') end end)
-pcall(function() if extensions.setExtensionUnloadMode then extensions.setExtensionUnloadMode('unityToBeamNG_lights', 'manual') end end)
+load('unityToBeamNG_lights')
+setExtensionUnloadMode('unityToBeamNG_lights', 'manual')
 ";
-
         public const string Extension = @"-- Unity to BeamNG: shows the red / yellow / green lamp objects of exported traffic lights.
 -- Reads /levels/<level>/signal_lamps.json, asks core_trafficSignals for the current state of each signal and
 -- hides/shows the lamp objects (TSStatic) accordingly. Falls back to the exported timing if the state cannot be read.
@@ -58,15 +56,15 @@ local function engineState(sigName)
 end
 
 local function timelineState(d, t)
-  local phase = d.green + d.yellow + d.allRed
+  local phase = d.greenSec + d.yellowSec + d.allRedSec
   local cycle = phase * d.phaseCount
   if cycle <= 0 then return 'red' end
   local x = t % cycle
   local idx = math.floor(x / phase)
   if idx ~= d.phaseIndex then return 'red' end
   local r = x - idx * phase
-  if r < d.green then return 'green' end
-  if r < d.green + d.yellow then return 'yellow' end
+  if r < d.greenSec then return 'green' end
+  if r < d.greenSec + d.yellowSec then return 'yellow' end
   return 'red'
 end
 
