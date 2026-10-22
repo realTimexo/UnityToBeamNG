@@ -13,7 +13,15 @@ namespace UnityToBeamNG
             var sb = new StringBuilder(s.Length);
             foreach (var c in s)
                 sb.Append((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' ? c : '_');
+            if (sb[0] >= '0' && sb[0] <= '9') sb.Insert(0, "n_"); // BeamNG: "Object name cannot start with a digit"
             return sb.ToString();
+        }
+
+        /// <summary>DAE node name: must not end in a digit (Torque reads a trailing number as detail level size -> "Shape with invalid detail levels").</summary>
+        public static string NodeName(string s)
+        {
+            var n = SafeId(s);
+            return char.IsDigit(n[n.Length - 1]) ? n + "_mesh" : n;
         }
 
         public static bool IsValidLevelName(string s)
