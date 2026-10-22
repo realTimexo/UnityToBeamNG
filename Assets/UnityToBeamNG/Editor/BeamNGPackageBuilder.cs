@@ -48,7 +48,7 @@ namespace UnityToBeamNG
                 var matText = File.Exists(matFile) ? File.ReadAllText(matFile) : "";
                 foreach (var dae in Directory.GetFiles(Path.Combine(c.LevelDir, "art", "shapes"), "*.dae"))
                 {
-                    foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(dae), "<material id=\"([^\"]+)\""))
+                    foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(dae), "<material id=\"[^\"]+\" name=\"([^\"]+)\""))
                         if (!matText.Contains("\"" + m.Groups[1].Value + "\":"))
                         { missing++; r.Add(ReportStatus.ERROR, "Structure", $"Material '{m.Groups[1].Value}' from {Path.GetFileName(dae)} is missing in main.materials.json."); }
                 }
