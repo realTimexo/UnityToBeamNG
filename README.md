@@ -2,7 +2,7 @@
 
 Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.drive mod ZIP.
 
-> **Status: alpha (v0.3.1).** Meshes, materials, spawn point, collision and terrain height have been confirmed working in BeamNG.drive 0.40. Terrain textures, the road network (AI) and traffic lights are new in 0.3.x and **not yet verified in game**. See [Known limitations](#known-limitations).
+> **Status: alpha (v0.3.2).** Meshes, materials, spawn point, collision and terrain height have been confirmed working in BeamNG.drive 0.40. Terrain textures, the road network (AI) and traffic lights are new in 0.3.x and **not yet verified in game**. See [Known limitations](#known-limitations).
 
 > **This project is vibe coded.** It was written together with an AI assistant and tested by hand. Expect rough edges, and please [report bugs](https://github.com/realTimexo/UnityToBeamNG/issues/new/choose) with the files listed below - that is how it gets better.
 
@@ -114,7 +114,7 @@ Built against the public [BeamNG documentation](https://documentation.beamng.com
 
 Grab the newest ZIP from the **[Releases page](https://github.com/realTimexo/UnityToBeamNG/releases)** and unpack it into your Unity project (it contains `Assets/UnityToBeamNG`). Found a problem? Use the **Report an issue** button in the tool window or [open an issue](https://github.com/realTimexo/UnityToBeamNG/issues).
 
-## Roads, AI and traffic lights (v0.3.1, untested in game)
+## Roads, AI and traffic lights (v0.3.2, untested in game)
 
 Open **Tools > Unity to BeamNG**, tabs **Roads** and **Traffic**.
 
@@ -127,3 +127,13 @@ Open **Tools > Unity to BeamNG**, tabs **Roads** and **Traffic**.
 - **Lamps:** the generated intersection has a pole with red/yellow/green lamp objects (emissive). A small Lua extension shipped in the mod (`lua/ge/extensions/unityToBeamNG/lights.lua`, started by `scripts/unity_to_beamng/modScript.lua`) shows only the lamp of the current signal state. Use your own models by assigning the lamp objects on each `BeamNGTrafficLight`.
 - **Road Architect:** the centre line is read from the road's `SplineN` node objects (and the spline itself, if available). Mark the `Road1` object (or press "Find Road Architect roads in scene").
 - **Road markings:** textures with alpha on marking-like materials are exported with alpha blending.
+
+
+## Guide: roads, intersections, traffic lights, AI traffic
+
+1. **Road network (needed for AI).** Your visible road stays a normal mesh. For every road press *Roads > Find Road Architect roads in scene* (or select the road and *Mark selected as BeamNG road*). Every road becomes an invisible DecalRoad (the AI navigation graph).
+2. **Intersections.** Roads that end at the same point (within 0.75 m) are joined automatically. At a 4-way crossing let all arms end in the middle of the crossing; for a T-junction end the side road exactly on a point of the main road (split the main road there so both halves also end at that point).
+3. **Traffic lights.** *Traffic > Create traffic intersection*: move the whole object to the crossing, then move each light next to the stop line of its arm. The blue arrow of a light must point in the driving direction of the cars it controls. Lights with the same *phase* number are green together (0 and 1 alternate). Times are on the intersection object.
+4. **Own models for lights.** Disable the simple poles and assign the red/yellow/green lamp objects on each *BeamNG/Traffic Light* (emissive materials).
+5. **AI traffic does not move?** Spawn only a few cars (3-5) and not all at one spot; make sure the roads form one connected network (no gaps > 0.75 m) and are not tiny pieces; check in the World Editor (F11) that the DecalRoads exist under `Roads`.
+6. **Transparent signs.** Use a PNG with a transparent background and set the Unity material to Transparent/Cutout. The tool exports the alpha as a separate opacity map.
