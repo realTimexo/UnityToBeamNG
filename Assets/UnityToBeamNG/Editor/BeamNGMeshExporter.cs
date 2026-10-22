@@ -19,14 +19,14 @@ namespace UnityToBeamNG
         {
             var res = new string[m.subMeshCount];
             for (int i = 0; i < res.Length; i++)
-                res[i] = reg.NameOf((mats != null && i < mats.Length) ? mats[i] : null);
+                res[i] = reg.NameOf(mats == null || mats.Length == 0 ? null : mats[Mathf.Min(i, mats.Length - 1)]); // Unity renders extra submeshes with the last material
             return res;
         }
 
         /// <summary>tiling: per submesh (scaleX, scaleY, offsetX, offsetY) baked into the UVs (null = unchanged).</summary>
         public static void Write(TextWriter w, Mesh m, string name, string[] matSymbols, BeamNGExportReport r, Vector4[] tiling = null)
         {
-            var id = BeamNGEditorUtilities.SafeId(name);
+            var id = BeamNGEditorUtilities.NodeName(name);
             var verts = m.vertices;
             var nrm = m.normals;
             var uv = m.uv;
@@ -42,11 +42,11 @@ namespace UnityToBeamNG
 
             w.WriteLine("<library_effects>");
             foreach (var s in uniq)
-                w.WriteLine("<effect id=\"" + s + "-fx\"><profile_COMMON><technique sid=\"common\"><phong><diffuse><color>0.6 0.6 0.6 1</color></diffuse></phong></technique></profile_COMMON></effect>");
+                w.WriteLine("<effect id=\"" + s + "-effect\"><profile_COMMON><technique sid=\"common\"><phong><diffuse><color>0.6 0.6 0.6 1</color></diffuse></phong></technique></profile_COMMON></effect>");
             w.WriteLine("</library_effects>");
             w.WriteLine("<library_materials>");
             foreach (var s in uniq)
-                w.WriteLine("<material id=\"" + s + "\" name=\"" + s + "\"><instance_effect url=\"#" + s + "-fx\"/></material>");
+                w.WriteLine("<material id=\"" + s + "-material\" name=\"" + s + "\"><instance_effect url=\"#" + s + "-effect\"/></material>");
             w.WriteLine("</library_materials>");
 
             w.WriteLine("<library_geometries><geometry id=\"" + id + "-geom\" name=\"" + id + "\"><mesh>");
@@ -87,7 +87,7 @@ namespace UnityToBeamNG
                     continue;
                 }
                 var tris = m.GetTriangles(s);
-                w.Write("<triangles material=\"" + matSymbols[s] + "\" count=\"" + tris.Length / 3 + "\">");
+                w.Write("<triangles material=\"" + matSymbols[s] + "-material\" count=\"" + tris.Length / 3 + "\">");
                 w.Write("<input semantic=\"VERTEX\" source=\"#" + id + "-vtx\" offset=\"0\"/>");
                 if (hasN) w.Write("<input semantic=\"NORMAL\" source=\"#" + id + "-nrm\" offset=\"0\"/>");
                 if (hasUV) w.Write("<input semantic=\"TEXCOORD\" source=\"#" + id + "-uv\" offset=\"0\" set=\"0\"/>");
@@ -101,7 +101,7 @@ namespace UnityToBeamNG
             w.WriteLine("<library_visual_scenes><visual_scene id=\"Scene\">");
             w.WriteLine("<node id=\"base00\" name=\"base00\" type=\"NODE\"><node id=\"start01\" name=\"start01\" type=\"NODE\">");
             w.WriteLine("<node id=\"" + id + "\" name=\"" + id + "\" type=\"NODE\"><instance_geometry url=\"#" + id + "-geom\"><bind_material><technique_common>");
-            foreach (var s in uniq) w.WriteLine("<instance_material symbol=\"" + s + "\" target=\"#" + s + "\"/>");
+            foreach (var s in uniq) w.WriteLine("<instance_material symbol=\"" + s + "-material\" target=\"#" + s + "-material\"/>");
             w.WriteLine("</technique_common></bind_material></instance_geometry></node>");
             w.WriteLine("</node></node>");
             w.WriteLine("</visual_scene></library_visual_scenes>");
@@ -142,7 +142,7 @@ namespace UnityToBeamNG
                 var tileSig = new System.Text.StringBuilder();
                 for (int sm = 0; sm < tiling.Length; sm++)
                 {
-                    var mat = (inst.Materials != null && sm < inst.Materials.Length) ? inst.Materials[sm] : null;
+                    var mat = (inst.Materials != null && inst.Materials.Length > 0) ? inst.Materials[Mathf.Min(sm, inst.Materials.Length - 1)] : null;
                     var sc0 = mat != null ? mat.mainTextureScale : Vector2.one;
                     var of0 = mat != null ? mat.mainTextureOffset : Vector2.zero;
                     tiling[sm] = new Vector4(sc0.x, sc0.y, of0.x, of0.y);
