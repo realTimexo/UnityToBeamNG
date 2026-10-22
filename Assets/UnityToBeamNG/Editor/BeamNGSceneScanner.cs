@@ -5,7 +5,7 @@ namespace UnityToBeamNG
 {
     public class MeshInstance
     {
-        public MeshRenderer Renderer;
+        public Renderer Renderer;
         public Mesh Mesh;
         public Material[] Materials;
         public string Path;
@@ -32,6 +32,8 @@ namespace UnityToBeamNG
         public int SkippedLod;
         public int SkippedExcluded;
         public int MirroredObjects;
+        public int SkinnedBaked;
+        public readonly List<string> NotExported = new List<string>();
         public long Triangles;
 
         public SpawnInfo DefaultSpawn { get { foreach (var s in Spawns) if (s.IsDefault) return s; return null; } }
@@ -64,7 +66,7 @@ namespace UnityToBeamNG
 
             foreach (var mr in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
             {
-                if (!mr.gameObject.activeInHierarchy || !mr.enabled) continue;
+                if (!mr.gameObject.activeInHierarchy || !mr.enabled) { res.NotExported.Add(BeamNGEditorUtilities.HierarchyPath(mr.transform) + ": inactive/disabled"); continue; }
                 var path = BeamNGEditorUtilities.HierarchyPath(mr.transform);
 
                 var cs = mr.GetComponentInParent<BeamNGCollisionSettings>();
@@ -79,7 +81,7 @@ namespace UnityToBeamNG
                     for (int i = 0; i < lods.Length; i++)
                         foreach (var rend in lods[i].renderers)
                             if (rend == mr) { inAny = true; if (i == 0) in0 = true; }
-                    if (inAny && !in0) { res.SkippedLod++; continue; }
+                    if (inAny && !in0) { res.SkippedLod++; res.NotExported.Add(path + ": LOD1+"); continue; }
                 }
 
                 var mf = mr.GetComponent<MeshFilter>();
@@ -111,7 +113,30 @@ namespace UnityToBeamNG
             }
             res.Meshes.Sort((a, b) => string.CompareOrdinal(a.Path, b.Path));
 
-            foreach (var x in Object.FindObjectsByType<SkinnedMeshRenderer>(FindObjectsSortMode.None)) res.CountUnsupported("SkinnedMeshRenderer");
+            // SkinnedMeshRenderer (e.g. Blender/FBX models with an armature or shape keys): baked in the current pose and exported as a static mesh.
+            foreach (var sr in Object.FindObjectsByType<SkinnedMeshRenderer>(FindObjectsSortMode.None))
+            {
+                if (!sr.gameObject.activeInHierarchy || !sr.enabled || sr.sharedMesh == null) continue;
+                var spath = BeamNGEditorUtilities.HierarchyPath(sr.transform);
+                var scs = sr.GetComponentInParent<BeamNGCollisionSettings>();
+                if (scs != null && scs.excludeFromExport) { res.SkippedExcluded++; continue; }
+                try
+                {
+                    var baked = new Mesh { name = sr.sharedMesh.name + "_baked", hideFlags = HideFlags.DontSave };
+                    sr.BakeMesh(baked);
+                    var smats = sr.sharedMaterials;
+                    foreach (var m in smats) if (m == null) res.MissingMaterials++;
+                    var smode = scs != null ? scs.mode : BeamNGCollisionMode.Auto;
+                    if (smode == BeamNGCollisionMode.Auto)
+                        smode = (s.collideAllByDefault || sr.GetComponentInParent<Collider>() != null) ? BeamNGCollisionMode.VisibleMesh : BeamNGCollisionMode.None;
+                    res.Meshes.Add(new MeshInstance { Renderer = sr, Mesh = baked, Materials = smats, Path = spath, Collision = smode });
+                    for (int i = 0; i < baked.subMeshCount; i++) res.Triangles += baked.GetIndexCount(i) / 3;
+                    res.SkinnedBaked++;
+                    var sl = sr.transform.lossyScale; if (sl.x * sl.y * sl.z < 0f) res.MirroredObjects++;
+                }
+                catch (System.Exception e) { res.CountUnsupported("SkinnedMeshRenderer (bake failed: " + e.Message + ")"); }
+            }
+            res.Meshes.Sort((a, b) => string.CompareOrdinal(a.Path, b.Path));
             foreach (var x in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None)) res.CountUnsupported("ParticleSystem");
 
             CollectSpawns(s, res);
