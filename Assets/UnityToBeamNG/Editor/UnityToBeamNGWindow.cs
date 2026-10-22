@@ -6,7 +6,7 @@ namespace UnityToBeamNG
 {
     public class UnityToBeamNGWindow : EditorWindow
     {
-        public const string ToolVersion = "0.3.1";
+        public const string ToolVersion = "0.3.2";
         public const string RepoUrl = "https://github.com/realTimexo/UnityToBeamNG";
         public const string ReleasesUrl = "https://github.com/realTimexo/UnityToBeamNG/releases";
         public const string IssuesUrl = "https://github.com/realTimexo/UnityToBeamNG/issues";
