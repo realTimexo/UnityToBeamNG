@@ -1,45 +1,49 @@
 Unity to BeamNG - Source Available License
+
 Copyright (c) 2026 Timexo. All rights reserved.
 
-This is NOT an open source license. The source code is made available for
-use and study under the terms below.
+This is NOT an open source license. The source code is made available for use and study under the terms below.
 
 1. WHAT YOU MAY DO
-   a) Use this tool, for free, to export your own Unity scenes into BeamNG.drive
-      maps, including for commercial or monetized maps.
-   b) Keep and modify a private copy of the source code for your own use.
-   c) Maps, meshes, textures and other files you EXPORT with this tool belong
-      to you (or to whoever owns the source assets). They are not covered by
-      this license.
+
+a) Use this tool, for free, to export your own Unity scenes into BeamNG.drive maps, including for commercial or monetized maps.
+
+b) Keep and modify a private copy of the source code for your own use.
+
+c) Maps, meshes, textures and other files you EXPORT with this tool belong to you (or to whoever owns the source assets). They are not covered by this license.
 
 2. WHAT YOU MAY NOT DO (without written permission from the copyright holder)
-   a) Redistribute, re-upload, sell, sublicense or republish this code or any
-      modified version of it, in whole or in part.
-   b) Include this code in another product, tool, asset-store package or
-      paid service.
-   c) Remove or alter copyright notices or this license.
 
-3. ATTRIBUTION FOR PUBLIC SHOWCASES
-   If you show this tool, its user interface or maps made with it publicly
-   (for example on social media, YouTube, Twitch, forums or in articles),
-   you must include a link to the project page:
+a) Redistribute, re-upload, sell, sublicense or republish this code or any modified version of it, in whole or in part.
 
-       [link to site]
+b) Include this code in another product, tool, asset-store package or paid service.
+
+c) Remove or alter copyright notices or this license.
+
+3. ATTRIBUTION AND LINK REQUIREMENTS FOR PUBLIC SHOWCASES AND MOD RELEASES
+
+a) If you show this tool or its user interface publicly (for example on social media, YouTube, Twitch, forums or in articles), you must include a link to the project page:
+
+https://github.com/realTimexo/UnityToBeamNG
+
+b) If you publish, distribute or publicly release a mod, map or other content created using this tool, you must include a link to the tool's GitHub project page:
+
+https://github.com/realTimexo/UnityToBeamNG
+
+c) The link must be included in a reasonably visible location associated with the published mod, such as its description, download page, release notes or accompanying documentation.
+
+d) This attribution requirement applies whether the published mod is free, paid or monetized.
+
+e) This requirement applies to linking to the tool only. It does not transfer ownership of the published mod or its assets to the copyright holder of this tool.
 
 4. TRADEMARKS AND THIRD PARTIES
-   "BeamNG" and "BeamNG.drive" are trademarks of BeamNG GmbH. "Unity" is a
-   trademark of Unity Technologies. This project is an independent, unofficial
-   tool and is not affiliated with or endorsed by BeamNG GmbH or Unity
-   Technologies.
+
+"BeamNG" and "BeamNG.drive" are trademarks of BeamNG GmbH. "Unity" is a trademark of Unity Technologies. This project is an independent, unofficial tool and is not affiliated with or endorsed by BeamNG GmbH or Unity Technologies.
 
 5. NO WARRANTY
-   THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE
-   USE OF THIS SOFTWARE. You are responsible for checking that you have the
-   rights to all assets you export.
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE, TO THE EXTENT PERMITTED BY APPLICABLE LAW. YOU ARE RESPONSIBLE FOR CHECKING THAT YOU HAVE THE RIGHTS TO ALL ASSETS YOU EXPORT.
 
 6. TERMINATION
-   This license ends automatically if you violate it. Permission for anything
-   beyond this license can be requested from the copyright holder.
+
+This license ends automatically if you violate it, to the extent permitted by applicable law. Permission for anything beyond this license can be requested from the copyright holder.
