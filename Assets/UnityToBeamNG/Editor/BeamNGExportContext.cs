@@ -17,6 +17,7 @@ namespace UnityToBeamNG
         public bool Aborted;
         public readonly Dictionary<Renderer, string> LampNames = new Dictionary<Renderer, string>();
         public List<string> RoadLines = new List<string>();
+        public List<RoadPath> RoadPaths = new List<RoadPath>();
         public readonly Dictionary<BeamNGTrafficLight, string> SignalNames = new Dictionary<BeamNGTrafficLight, string>();
         public readonly List<string> Required = new List<string>(); // relative to LevelDir
 
