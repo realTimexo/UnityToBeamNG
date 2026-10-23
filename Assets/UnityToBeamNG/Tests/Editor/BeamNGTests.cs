@@ -140,6 +140,43 @@ namespace UnityToBeamNG.Tests
         }
 
         [Test]
+        public void Forest_Line_HasDocumentedFields()
+        {
+            var line = BeamNGVegetationExporter.ForestLine("tree_oak", new Vector3(1.5f, 2f, 3f), new float[] { 1, 0, 0, 0, 1, 0, 0, 0, 1 }, 0.85f);
+            Assert.AreEqual("{\"type\":\"tree_oak\",\"pos\":[1.5,2,3],\"rotationMatrix\":[1,0,0,0,1,0,0,0,1],\"scale\":0.85}", line);
+        }
+
+        [Test]
+        public void Forest_Collision_ShapesPointOutward()
+        {
+            foreach (var col in new[] { BeamNGVegetationExporter.MakePrism(new Vector2(0, 0), 0.4f, 0f, 5f, 8), BeamNGVegetationExporter.MakeBox(new Bounds(Vector3.zero, Vector3.one * 2f)) })
+            {
+                var center = Vector3.zero;
+                foreach (var v in col.V) center += v;
+                center /= col.V.Length;
+                for (int i = 0; i < col.T.Length; i += 3)
+                {
+                    var a = col.V[col.T[i]]; var b = col.V[col.T[i + 1]]; var c = col.V[col.T[i + 2]];
+                    Assert.Greater(Vector3.Dot(Vector3.Cross(b - a, c - a), (a + b + c) / 3f - center), 0f);
+                }
+            }
+        }
+
+        [Test]
+        public void Foliage_Detection_IgnoresBark()
+        {
+            var shader = Shader.Find("Standard");
+            var leaf = new Material(shader) { name = "Oak_Leaves" };
+            var bark = new Material(shader) { name = "Oak_Bark" };
+            try
+            {
+                Assert.IsTrue(BeamNGVegetationExporter.LooksLikeFoliage(leaf));
+                Assert.IsFalse(BeamNGVegetationExporter.LooksLikeFoliage(bark));
+            }
+            finally { Object.DestroyImmediate(leaf); Object.DestroyImmediate(bark); }
+        }
+
+        [Test]
         public void Pipeline_WithoutSpawn_FailsWithError()
         {
             var dir = Path.Combine(Path.GetTempPath(), "bng_test_" + System.Guid.NewGuid().ToString("N"));
