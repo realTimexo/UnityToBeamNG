@@ -26,7 +26,7 @@ namespace UnityToBeamNG
     [Serializable]
     public class ExportManifest
     {
-        public string tool = "Unity to BeamNG 0.3.2";
+        public string tool = "Unity to BeamNG 0.4.0";
         public string unityVersion;
         public string levelName;
         public string mapName;
@@ -81,7 +81,8 @@ namespace UnityToBeamNG
                 var manifest = new ExportManifest { unityVersion = Application.unityVersion, levelName = s.levelName, mapName = s.mapName, author = s.author };
 
                 BeamNGSignalExporter.Export(ctx);
-                ctx.RoadLines = BeamNGRoadExporter.BuildLines(BeamNGRoadExporter.Collect(r));
+                ctx.RoadPaths = BeamNGRoadExporter.Collect(r);
+                ctx.RoadLines = BeamNGRoadExporter.BuildLines(ctx.RoadPaths);
 
                 TerrainResult terrain = null;
                 if (s.exportTerrain && scan.Terrains.Count > 0)
@@ -99,12 +100,20 @@ namespace UnityToBeamNG
                 }
                 r.Skipped = scan.SkippedLod + scan.SkippedExcluded + scan.InvalidMeshes;
 
-                if (ctx.Cancelled("Converting materials", 0.82f)) return Abort(r, tmp);
+                if (ctx.Cancelled("Vegetation (trees, details)", 0.80f)) return Abort(r, tmp);
+                var veg = BeamNGVegetationExporter.Export(ctx, scan, reg);
+                if (veg == null || ctx.Aborted) return Abort(r, tmp);
+
+                if (ctx.Cancelled("Minimap", 0.795f)) return Abort(r, tmp);
+                var mini = BeamNGMinimapExporter.Export(ctx, scan, terrain, veg);
+                if (ctx.Aborted) return Abort(r, tmp);
+
+                if (ctx.Cancelled("Converting materials", 0.85f)) return Abort(r, tmp);
                 BeamNGMaterialExporter.Export(ctx, reg, tex);
 
-                if (ctx.Cancelled("Writing level files", 0.86f)) return Abort(r, tmp);
+                if (ctx.Cancelled("Writing level files", 0.88f)) return Abort(r, tmp);
                 var spawns = BeamNGLevelBuilder.ResolveSpawns(ctx, scan);
-                BeamNGLevelBuilder.Build(ctx, scan, terrain, staticLines, spawns);
+                BeamNGLevelBuilder.Build(ctx, scan, terrain, staticLines, spawns, veg, mini);
 
                 File.WriteAllText(Path.Combine(ctx.ExtrasDir, "export_manifest.json"), JsonUtility.ToJson(manifest, true), new UTF8Encoding(false));
 
