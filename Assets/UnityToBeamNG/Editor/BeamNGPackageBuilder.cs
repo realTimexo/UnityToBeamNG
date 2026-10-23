@@ -25,7 +25,19 @@ namespace UnityToBeamNG
                 var rel = f.Substring(c.LevelDir.Length + 1).Replace('\\', '/');
                 try
                 {
-                    if (name == "items.level.json")
+                    if (name.EndsWith(".forest4.json"))
+                    {
+                        // line-delimited JSON; can be very large: parse the first lines, check braces on all
+                        int ln = 0;
+                        foreach (var line in File.ReadLines(f))
+                        {
+                            ln++;
+                            if (string.IsNullOrWhiteSpace(line)) continue;
+                            if (ln <= 20) JsonUtility.FromJson<JsonProbe>(line);
+                            if (!line.StartsWith("{") || !line.EndsWith("}")) throw new Exception("line " + ln + " is not a JSON object");
+                        }
+                    }
+                    else if (name == "items.level.json")
                     {
                         int ln = 0;
                         foreach (var line in File.ReadAllLines(f))
@@ -110,6 +122,42 @@ namespace UnityToBeamNG
                     if (!File.Exists(Path.Combine(c.Root, m.Groups[1].Value.TrimStart('/').Replace('/', Path.DirectorySeparatorChar))))
                     { errors++; r.Add(ReportStatus.ERROR, "Structure", "Texture missing: " + m.Groups[1].Value); }
             }
+
+            // --- forest: every item type needs an existing shape, every placement a defined type ---
+            var managed = Path.Combine(c.LevelDir, "art", "forest", "managedItemData.json");
+            var forestDir = Path.Combine(c.LevelDir, "forest");
+            if (File.Exists(managed))
+            {
+                var mtext = File.ReadAllText(managed);
+                var defined = new HashSet<string>();
+                foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(mtext, "\"internalName\":\"([^\"]*)\""))
+                    defined.Add(m.Groups[1].Value);
+                foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(mtext, "\"shapeFile\":\"([^\"]*)\""))
+                    if (!File.Exists(Path.Combine(c.Root, m.Groups[1].Value.TrimStart('/').Replace('/', Path.DirectorySeparatorChar))))
+                    { errors++; r.Add(ReportStatus.ERROR, "Structure", "Forest shape missing: " + m.Groups[1].Value); }
+                if (Directory.Exists(forestDir))
+                {
+                    var rxType = new System.Text.RegularExpressions.Regex("\"type\":\"([^\"]*)\"");
+                    foreach (var f in Directory.GetFiles(forestDir, "*.forest4.json"))
+                    {
+                        var seen = new HashSet<string>();
+                        foreach (var line in File.ReadLines(f))
+                        {
+                            var tm = rxType.Match(line);
+                            if (tm.Success) seen.Add(tm.Groups[1].Value);
+                        }
+                        foreach (var t in seen)
+                            if (!defined.Contains(t)) { errors++; r.Add(ReportStatus.ERROR, "Structure", $"{Path.GetFileName(f)}: item type '{t}' is not defined in managedItemData.json."); }
+                    }
+                }
+            }
+            else if (Directory.Exists(forestDir) && Directory.GetFiles(forestDir, "*.forest4.json").Length > 0)
+            { errors++; r.Add(ReportStatus.ERROR, "Structure", "forest/*.forest4.json exists but art/forest/managedItemData.json is missing."); }
+
+            if (File.Exists(infoPath))
+                foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(infoPath), "\"file\":\"([^\"]*)\""))
+                    if (!File.Exists(Path.Combine(c.LevelDir, m.Groups[1].Value.Replace('/', Path.DirectorySeparatorChar))))
+                    { errors++; r.Add(ReportStatus.ERROR, "Structure", "info.json minimap file missing: " + m.Groups[1].Value); }
 
             // no absolute local paths
             foreach (var f in Directory.GetFiles(c.LevelDir, "*.json", SearchOption.AllDirectories))
