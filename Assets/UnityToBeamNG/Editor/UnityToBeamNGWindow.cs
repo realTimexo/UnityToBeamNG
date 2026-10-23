@@ -6,7 +6,7 @@ namespace UnityToBeamNG
 {
     public class UnityToBeamNGWindow : EditorWindow
     {
-        public const string ToolVersion = "0.3.2";
+        public const string ToolVersion = "0.4.0";
         public const string RepoUrl = "https://github.com/realTimexo/UnityToBeamNG";
         public const string ReleasesUrl = "https://github.com/realTimexo/UnityToBeamNG/releases";
         public const string IssuesUrl = "https://github.com/realTimexo/UnityToBeamNG/issues";
@@ -16,7 +16,8 @@ namespace UnityToBeamNG
         BeamNGExportSettings s;
         Vector2 scroll;
         int tab;
-        static readonly string[] Tabs = { "Dashboard", "Map", "Spawn", "Roads", "Traffic", "Modules", "Report", "About" };
+        static readonly string[] Tabs = { "Dashboard", "Map", "Spawn", "Roads", "Traffic", "Vegetation", "Modules", "Report", "About" };
+        const int ReportTab = 7;
 
         [MenuItem("Tools/Unity to BeamNG")]
         static void Open() { GetWindow<UnityToBeamNGWindow>("Unity to BeamNG"); }
@@ -37,9 +38,10 @@ namespace UnityToBeamNG
                 case 2: SpawnTab(); break;
                 case 3: RoadsTab(); break;
                 case 4: TrafficTab(); break;
-                case 5: Modules(); break;
-                case 6: ReportView(); break;
-                case 7: About(); break;
+                case 5: VegetationTab(); break;
+                case 6: Modules(); break;
+                case 7: ReportView(); break;
+                case 8: About(); break;
             }
             if (EditorGUI.EndChangeCheck()) s.Save();
             EditorGUILayout.EndScrollView();
@@ -64,7 +66,7 @@ namespace UnityToBeamNG
                 EditorGUILayout.LabelField("Last ZIP", BeamNGExportPipeline.LastZipPath);
             EditorGUILayout.HelpBox(
                 "The export creates an installable ZIP (levels/<name>/...). Files created and structure validated does NOT mean tested in game. " +
-                "Not included: road/traffic light logic, vegetation, water, normal maps. See the report for details.",
+                "Not included: water, normal maps, tree LODs/wind. See the report for details.",
                 MessageType.Warning);
         }
 
@@ -181,6 +183,75 @@ namespace UnityToBeamNG
                 + FindObjectsByType<BeamNGTrafficLight>(FindObjectsSortMode.None).Length + " light(s)");
         }
 
+        void VegetationTab()
+        {
+            EditorGUILayout.HelpBox(
+                "Trees from 'Paint Trees' and grass / meshes from 'Paint Details' on your Unity Terrain are exported as BeamNG forest items " +
+                "(forest/*.forest4.json + art/forest/managedItemData.json + a Forest object). Tree prefabs need Read/Write enabled on their meshes.", MessageType.Info);
+            int trees = 0, protos = 0, dprotos = 0, terrains = 0;
+            foreach (var t in FindObjectsByType<Terrain>(FindObjectsSortMode.None))
+            {
+                if (!t.gameObject.activeInHierarchy || t.terrainData == null) continue;
+                terrains++; trees += t.terrainData.treeInstanceCount; protos += t.terrainData.treePrototypes.Length; dprotos += t.terrainData.detailPrototypes.Length;
+            }
+            EditorGUILayout.LabelField("In scene", terrains + " terrain(s), " + trees.ToString("N0") + " tree(s) of " + protos + " prototype(s), " + dprotos + " detail prototype(s)");
+
+            s.exportVegetation = EditorGUILayout.ToggleLeft("Export vegetation (trees + details)", s.exportVegetation);
+            using (new EditorGUI.DisabledScope(!s.exportVegetation))
+            {
+                EditorGUILayout.LabelField("Trees", EditorStyles.boldLabel);
+                s.treeCollision = EditorGUILayout.ToggleLeft("Trees collide (trunk collision shape)", s.treeCollision);
+                using (new EditorGUI.DisabledScope(!s.treeCollision))
+                    s.minCollidableTreeHeight = EditorGUILayout.FloatField("No collision below height (m)", s.minCollidableTreeHeight);
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField("Details (Paint Details)", EditorStyles.boldLabel);
+                s.exportDetails = EditorGUILayout.ToggleLeft("Export details (grass, detail meshes)", s.exportDetails);
+                using (new EditorGUI.DisabledScope(!s.exportDetails))
+                {
+                    s.detailDensity = EditorGUILayout.Slider("Density (share of Unity's instances)", s.detailDensity, 0.05f, 1f);
+                    s.maxDetailInstances = EditorGUILayout.IntField("Max detail instances (budget)", s.maxDetailInstances);
+                    s.detailMeshCollision = EditorGUILayout.ToggleLeft("Detail meshes (rocks etc.) collide (bounding box). Grass never collides.", s.detailMeshCollision);
+                }
+            }
+            if (GUILayout.Button("Enable Read/Write on tree & detail models (fixes 'not readable')", GUILayout.Height(24)))
+                EditorUtility.DisplayDialog("Vegetation", EnableReadWriteOnVegetation() + " model(s) changed and re-imported.", "OK");
+            EditorGUILayout.HelpBox("Forest items support one uniform scale (tree width/height scale is averaged). No wind sway and no distance LOD/billboards yet. Collision uses a 'Colmesh-1' node in the tree DAE (untested in game).", MessageType.Warning);
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Minimap", EditorStyles.boldLabel);
+            s.exportMinimap = EditorGUILayout.ToggleLeft("Create minimap (terrain colours, roads, buildings, trees)", s.exportMinimap);
+            using (new EditorGUI.DisabledScope(!s.exportMinimap))
+                s.minimapResolution = EditorGUILayout.IntPopup("Minimap resolution", s.minimapResolution, new[] { "512", "1024", "2048", "4096" }, new[] { 512, 1024, 2048, 4096 });
+        }
+
+        static int EnableReadWriteOnVegetation()
+        {
+            var paths = new System.Collections.Generic.HashSet<string>();
+            System.Action<GameObject> collect = go =>
+            {
+                if (go == null) return;
+                foreach (var mf in go.GetComponentsInChildren<MeshFilter>(true))
+                    if (mf.sharedMesh != null && !mf.sharedMesh.isReadable)
+                    {
+                        var path = AssetDatabase.GetAssetPath(mf.sharedMesh);
+                        if (!string.IsNullOrEmpty(path)) paths.Add(path);
+                    }
+            };
+            foreach (var t in FindObjectsByType<Terrain>(FindObjectsSortMode.None))
+            {
+                if (t.terrainData == null) continue;
+                foreach (var tp in t.terrainData.treePrototypes) collect(tp.prefab);
+                foreach (var dp in t.terrainData.detailPrototypes) if (dp.usePrototypeMesh) collect(dp.prototype);
+            }
+            int n = 0;
+            foreach (var p in paths)
+            {
+                var mi = AssetImporter.GetAtPath(p) as ModelImporter;
+                if (mi != null && !mi.isReadable) { mi.isReadable = true; mi.SaveAndReimport(); n++; }
+            }
+            return n;
+        }
+
         void Modules()
         {
             s.exportTerrain = EditorGUILayout.ToggleLeft("Terrain (.ter + terrain materials)", s.exportTerrain);
@@ -192,8 +263,8 @@ namespace UnityToBeamNG
             EditorGUILayout.LabelField("Not implemented yet", EditorStyles.boldLabel);
             using (new EditorGUI.DisabledScope(true))
             {
-                string[] todo = { "Traffic sign logic (stop/yield), pedestrian crossings", "Vegetation (terrain trees/details)",
-                    "Water", "Normal maps / emission / transparency", "Minimap", "Bridges/tunnels as dedicated objects" };
+                string[] todo = { "Traffic sign logic (stop/yield), pedestrian crossings", "Tree LODs / wind sway",
+                    "Water", "Normal maps", "Bridges/tunnels as dedicated objects" };
                 foreach (var t in todo) EditorGUILayout.ToggleLeft(t, false);
             }
         }
@@ -232,10 +303,10 @@ namespace UnityToBeamNG
         {
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Validate", GUILayout.Height(28)))
-            { BeamNGExportPipeline.Validate(s); tab = 6; }
+            { BeamNGExportPipeline.Validate(s); tab = ReportTab; }
             var old = GUI.backgroundColor; GUI.backgroundColor = new Color(0.3f, 0.7f, 0.3f);
             if (GUILayout.Button("EXPORT TO BEAMNG", GUILayout.Height(28)))
-            { BeamNGExportPipeline.Export(s); tab = 6; }
+            { BeamNGExportPipeline.Export(s); tab = ReportTab; }
             GUI.backgroundColor = old;
             EditorGUILayout.EndHorizontal();
             if (GUILayout.Button("Report an issue / bug on GitHub")) Application.OpenURL(IssuesUrl);
@@ -246,7 +317,7 @@ namespace UnityToBeamNG
                 if (string.IsNullOrEmpty(p) || !File.Exists(p)) p = s.exportDirectory;
                 if (!string.IsNullOrEmpty(p) && (File.Exists(p) || Directory.Exists(p))) EditorUtility.RevealInFinder(p);
             }
-            if (GUILayout.Button("Show report")) tab = 6;
+            if (GUILayout.Button("Show report")) tab = ReportTab;
             EditorGUILayout.EndHorizontal();
         }
     }
