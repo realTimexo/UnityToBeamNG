@@ -1,6 +1,18 @@
 # Changelog
 
+## 0.4.0 (alpha)
+- **New: vegetation.** Trees painted with Unity's *Paint Trees* and grass / meshes painted with *Paint Details* on a Unity Terrain are exported as BeamNG forest items: `art/forest/managedItemData.json` (type `TSForestItemData`), `forest/<type>.forest4.json` (one JSON object per line: `type`, `pos`, `rotationMatrix`, `scale`) and a `Forest` object (`theForest`) in a new `Vegetation` group. Format taken from the BeamNG docs (Forest Data / Forest class).
+  - Tree prefabs (LOD0 only, billboards skipped) are merged into one DAE per prefab; materials/textures go through the normal material export. Leaf/grass materials are exported double-sided with alpha test.
+  - **Collision:** trees get `"collidable": true` and a convex trunk collision shape written as an extra `Colmesh-1` node inside the DAE (radius from the prefab's `CapsuleCollider` or estimated from the trunk; bushes below a configurable height get none). Detail meshes (rocks...) can optionally collide with a bounding box. Grass never collides.
+  - **Details:** grass textures become three crossed quads (tinted with Unity's healthy/dry colour), detail meshes use their prefab. Density slider + hard instance budget (the density is lowered automatically when the budget would be exceeded). Positions come from Unity's detail layer; heights from the terrain.
+  - Limits (reported in the export report): forest items only have ONE uniform scale (tree width/height scale is averaged), no wind sway (`windScale` 0), no distance LOD / billboards.
+- **New: minimap.** `minimap/terrain.png` is rendered on the CPU (terrain layer colours + hillshade, roads, building footprints, trees) and registered in `info.json` as `"minimap":[{"file","size","offset"}]` (docs). Resolution 512-4096.
+- New "Vegetation" tab (trees, details, minimap options). Structure check now also verifies forest files (every placement type is defined, every shape exists, minimap file exists).
+- Unit tests for forest line format, collision orientation and foliage detection.
+
 ## 0.3.2 (alpha)
+- Transparency: opacity maps are now named `*_o.data.png` (BeamNG's documented naming; `.dataR.png` was not honored), `alphaRef` is an integer, and the color PNG background is filled with the sign's own colors (no green/black fringe even if the opacity map is ignored).
+- Fix: objects with negative scale (e.g. -21.5 on all axes, the Object_13 house) were invisible in BeamNG. The mirroring is now baked into the DAE (vertices, normals, winding) and the TSStatic gets the absolute scale.
 - Fix (from beamng.log): meshes whose name ends in a number (`Cylinder_001`, `Object_7` ...) were rejected by BeamNG with "Shape with invalid detail levels" (Torque reads a trailing number as detail-level size) - this made stop sign, traffic lights and other models invisible. DAE node names now never end in a digit.
 - Fix (from beamng.log): materials named only with digits (`1`, `3`, `8`, typical for FBX buildings) failed with "Object name cannot start with a digit" / "Unable to find material" -> houses without textures. Names starting with a digit now get the prefix `n_`.
 - Fix: traffic-light lamp Lua extension crashed every frame (`green` was both a duration and the lamp list). Durations renamed to `greenSec/yellowSec/allRedSec`. modScript now uses the documented `load()` / `setExtensionUnloadMode()`.
