@@ -6,6 +6,13 @@ using UnityEngine;
 
 namespace UnityToBeamNG
 {
+    /// <summary>Convex collision shape (Unity space, Unity winding) written as the extra node "Colmesh-1" (used by forest items).</summary>
+    public class ColMesh
+    {
+        public Vector3[] V;
+        public int[] T;
+    }
+
     /// <summary>
     /// Writes meshes as COLLADA 1.4.1 (.dae): Z-up, meters, hierarchy base00 > start01 > mesh (per BeamNG docs),
     /// axes converted to BeamNG, triangle winding reversed. The object transform
@@ -24,11 +31,15 @@ namespace UnityToBeamNG
         }
 
         /// <summary>tiling: per submesh (scaleX, scaleY, offsetX, offsetY) baked into the UVs (null = unchanged).</summary>
-        public static void Write(TextWriter w, Mesh m, string name, string[] matSymbols, BeamNGExportReport r, Vector4[] tiling = null)
+        public static void Write(TextWriter w, Mesh m, string name, string[] matSymbols, BeamNGExportReport r, Vector4[] tiling = null, Vector3? mirror = null, ColMesh col = null)
         {
             var id = BeamNGEditorUtilities.NodeName(name);
+            var mir = mirror ?? Vector3.one;
+            bool flip = mir.x * mir.y * mir.z < 0f;
             var verts = m.vertices;
             var nrm = m.normals;
+            for (int i = 0; i < verts.Length; i++) verts[i] = Vector3.Scale(verts[i], mir);
+            if (nrm != null) for (int i = 0; i < nrm.Length; i++) nrm[i] = Vector3.Scale(nrm[i], mir);
             var uv = m.uv;
             bool hasN = nrm != null && nrm.Length == verts.Length;
             bool hasUV = uv != null && uv.Length == verts.Length;
@@ -93,16 +104,31 @@ namespace UnityToBeamNG
                 if (hasUV) w.Write("<input semantic=\"TEXCOORD\" source=\"#" + id + "-uv\" offset=\"0\" set=\"0\"/>");
                 w.Write("<p>");
                 for (int i = 0; i < tris.Length; i += 3)
-                { w.Write(tris[i]); w.Write(' '); w.Write(tris[i + 2]); w.Write(' '); w.Write(tris[i + 1]); w.Write(' '); }
+                { int a = tris[i], b2 = flip ? tris[i + 1] : tris[i + 2], c2 = flip ? tris[i + 2] : tris[i + 1]; w.Write(a); w.Write(' '); w.Write(b2); w.Write(' '); w.Write(c2); w.Write(' '); }
                 w.WriteLine("</p></triangles>");
             }
-            w.WriteLine("</mesh></geometry></library_geometries>");
+            w.WriteLine("</mesh></geometry>");
+            if (col != null && col.V != null && col.T != null && col.T.Length >= 9)
+            {
+                // Collision shape for forest items: BeamNG/Torque read nodes named "Colmesh-<n>" as collision detail n.
+                w.Write("<geometry id=\"colmesh-geom\" name=\"Colmesh-1\"><mesh>");
+                w.Write("<source id=\"colmesh-pos\"><float_array id=\"colmesh-pos-arr\" count=\"" + col.V.Length * 3 + "\">");
+                foreach (var v in col.V) { var b = BeamNGCoordinateConverter.Position(v); w.Write(F(b.x)); w.Write(' '); w.Write(F(b.y)); w.Write(' '); w.Write(F(b.z)); w.Write(' '); }
+                w.Write("</float_array><technique_common><accessor source=\"#colmesh-pos-arr\" count=\"" + col.V.Length + "\" stride=\"3\"><param name=\"X\" type=\"float\"/><param name=\"Y\" type=\"float\"/><param name=\"Z\" type=\"float\"/></accessor></technique_common></source>");
+                w.Write("<vertices id=\"colmesh-vtx\"><input semantic=\"POSITION\" source=\"#colmesh-pos\"/></vertices>");
+                w.Write("<triangles material=\"" + uniq[0] + "-material\" count=\"" + col.T.Length / 3 + "\"><input semantic=\"VERTEX\" source=\"#colmesh-vtx\" offset=\"0\"/><p>");
+                for (int i = 0; i + 2 < col.T.Length; i += 3) { w.Write(col.T[i]); w.Write(' '); w.Write(col.T[i + 2]); w.Write(' '); w.Write(col.T[i + 1]); w.Write(' '); }
+                w.WriteLine("</p></triangles></mesh></geometry>");
+            }
+            w.WriteLine("</library_geometries>");
 
             w.WriteLine("<library_visual_scenes><visual_scene id=\"Scene\">");
             w.WriteLine("<node id=\"base00\" name=\"base00\" type=\"NODE\"><node id=\"start01\" name=\"start01\" type=\"NODE\">");
             w.WriteLine("<node id=\"" + id + "\" name=\"" + id + "\" type=\"NODE\"><instance_geometry url=\"#" + id + "-geom\"><bind_material><technique_common>");
             foreach (var s in uniq) w.WriteLine("<instance_material symbol=\"" + s + "-material\" target=\"#" + s + "-material\"/>");
             w.WriteLine("</technique_common></bind_material></instance_geometry></node>");
+            if (col != null && col.V != null && col.T != null && col.T.Length >= 9)
+                w.WriteLine("<node id=\"Colmesh-1\" name=\"Colmesh-1\" type=\"NODE\"><instance_geometry url=\"#colmesh-geom\"><bind_material><technique_common><instance_material symbol=\"" + uniq[0] + "-material\" target=\"#" + uniq[0] + "-material\"/></technique_common></bind_material></instance_geometry></node>");
             w.WriteLine("</node></node>");
             w.WriteLine("</visual_scene></library_visual_scenes>");
             w.WriteLine("<scene><instance_visual_scene url=\"#Scene\"/></scene></COLLADA>");
@@ -148,13 +174,15 @@ namespace UnityToBeamNG
                     tiling[sm] = new Vector4(sc0.x, sc0.y, of0.x, of0.y);
                     tileSig.Append(tiling[sm].ToString("F4")).Append(';');
                 }
-                var key = inst.Mesh.GetInstanceID() + "|" + string.Join(",", syms) + "|" + tileSig;
+                var ls0 = inst.Renderer.transform.lossyScale;
+                var mirror = new Vector3(ls0.x < 0f ? -1f : 1f, ls0.y < 0f ? -1f : 1f, ls0.z < 0f ? -1f : 1f);
+                var key = inst.Mesh.GetInstanceID() + "|" + string.Join(",", syms) + "|" + tileSig + "|" + mirror;
                 string rel;
                 if (!files.TryGetValue(key, out rel))
                 {
                     rel = "art/shapes/" + BeamNGEditorUtilities.SafeId(inst.Mesh.name) + "_" + (counter++) + ".dae";
                     using (var sw = new StreamWriter(c.Abs(rel), false, new UTF8Encoding(false), 1 << 16))
-                        Write(sw, inst.Mesh, inst.Mesh.name, syms, c.Report, tiling);
+                        Write(sw, inst.Mesh, inst.Mesh.name, syms, c.Report, tiling, mirror);
                     files[key] = rel;
                     c.Require(rel);
                 }
@@ -163,7 +191,7 @@ namespace UnityToBeamNG
                 var pos = BeamNGCoordinateConverter.Position(t.position);
                 var rotQ = BeamNGCoordinateConverter.Rotation(t.rotation);
                 var rot = BeamNGCoordinateConverter.RotationMatrix(rotQ);
-                var sc = BeamNGCoordinateConverter.Scale(t.lossyScale);
+                var sc = BeamNGCoordinateConverter.Scale(new Vector3(Mathf.Abs(t.lossyScale.x), Mathf.Abs(t.lossyScale.y), Mathf.Abs(t.lossyScale.z))); // mirroring is baked into the mesh
                 var objName = BeamNGEditorUtilities.SafeId(inst.Renderer.name) + "_" + (instanceNo++);
 
                 string lampName; var collision = inst.Collision;
@@ -198,7 +226,7 @@ namespace UnityToBeamNG
             c.Report.Add(ReportStatus.PASS, "Mesh", $"{files.Count} unique mesh(es) written as .dae, {lines.Count} TSStatic object(s).");
             c.Report.Add(ReportStatus.WARNING, "Mesh", "DAE files and axis conversion have not been verified in BeamNG.", "After loading, check orientation/size of a test object.");
             if (scan.SkippedLod > 0) c.Report.Add(ReportStatus.PASS, "Mesh", $"{scan.SkippedLod} LOD 1+ renderer(s) skipped (only LOD0 exported).");
-            if (scan.MirroredObjects > 0) c.Report.Add(ReportStatus.WARNING, "Mesh", $"{scan.MirroredObjects} object(s) with negative scale (mirrored): face direction may be wrong.", "Apply the mirroring in the model.");
+            if (scan.MirroredObjects > 0) c.Report.Add(ReportStatus.PASS, "Mesh", $"{scan.MirroredObjects} object(s) with negative scale: mirroring baked into the mesh (BeamNG does not render negative scale).");
             return lines;
         }
     }
