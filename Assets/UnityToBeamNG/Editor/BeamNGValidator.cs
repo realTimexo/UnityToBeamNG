@@ -21,6 +21,10 @@ namespace UnityToBeamNG
             }
             if (s.copyZipToModsFolder && !Directory.Exists(s.beamNGModsFolder))
                 r.Add(ReportStatus.ERROR, "Settings", "BeamNG mods folder does not exist.", "Pick the folder or disable 'Copy ZIP to mods folder'.");
+            if (s.detailDensity < 0.01f || s.detailDensity > 1f)
+                r.Add(ReportStatus.ERROR, "Settings", "Detail density is invalid.", "Use a value between 0.01 and 1.");
+            if (s.maxDetailInstances < 1000 || s.maxDetailInstances > 5000000)
+                r.Add(ReportStatus.ERROR, "Settings", "Max detail instances is invalid.", "Use a value between 1,000 and 5,000,000.");
             if (!s.exportTerrain && !s.exportMeshes)
                 r.Add(ReportStatus.ERROR, "Settings", "No module enabled.", "Enable at least Terrain or Meshes.");
         }
@@ -34,6 +38,10 @@ namespace UnityToBeamNG
                 r.Add(ReportStatus.ERROR, "Spawn", "No spawn point defined.", "Create an empty GameObject and pick it in the 'Spawn' tab (or add the 'BeamNG/Spawn Point' component).");
             if (scan.MissingMaterials > 0)
                 r.Add(ReportStatus.WARNING, "Material", $"{scan.MissingMaterials} empty material slot(s); they get the grey 'missing_material'.", "Assign materials.");
+            foreach (var n in scan.EmptySlotObjects)
+                r.Add(ReportStatus.WARNING, "Material", "Empty material slot on: " + n, "Select this object in the Hierarchy and assign a material to the empty slot (or remove the extra slot).");
+            foreach (var mo in scan.MissingMaterialObjects)
+                r.Add(ReportStatus.WARNING, "Material", "Empty material slot: " + mo, "Select this object in the Hierarchy and assign a material (or remove the extra slot).");
             foreach (var kv in scan.Unsupported)
                 r.Add(ReportStatus.WARNING, "Unsupported", $"{kv.Value}x {kv.Key} will not be exported.", "");
             if (scan.Triangles > BeamNGSceneScanner.TriangleWarnThreshold)
@@ -44,7 +52,7 @@ namespace UnityToBeamNG
                 r.Add(ReportStatus.PASS, "Mesh", $"{scan.SkinnedBaked} SkinnedMeshRenderer(s) baked in their current pose and exported as static meshes.");
             foreach (var n in scan.NotExported)
                 r.Add(ReportStatus.WARNING, "Scene", "Not exported: " + n, "");
-            r.Add(ReportStatus.MANUAL, "Features", "Not included: vegetation, water, normal maps, minimap, stop/yield sign logic.", "See README.");
+            r.Add(ReportStatus.MANUAL, "Features", "Not included: water, normal maps, tree LODs/wind, stop/yield sign logic.", "See README.");
         }
     }
 }
