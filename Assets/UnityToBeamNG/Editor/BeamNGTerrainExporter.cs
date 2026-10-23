@@ -306,8 +306,6 @@ namespace UnityToBeamNG
             if (holesTotal > 0) r.Add(ReportStatus.PASS, "Terrain", $"{holesTotal:N0} sample(s) marked as hole (255) (hole mask / empty areas).");
             r.Add(ReportStatus.WARNING, "Terrain", ".ter file follows the docs (version 9). Not documented and therefore UNVERIFIED: material name encoding and row order.", "Load the map: if the terrain is missing or flipped, use extras/theTerrain_heightmap16.png with the World Editor terrain importer.");
             r.Add(ReportStatus.WARNING, "Terrain", "Terrain textures: classic (v1) terrain material per Unity layer (diffuseMap + size). The PBR texture-set mode is experimental and off by default. Not yet confirmed in game.", "If still black, send beamng.log.");
-            if (terrains.Exists(t => t.terrainData.treeInstanceCount > 0 || t.terrainData.detailPrototypes.Length > 0))
-                r.Add(ReportStatus.WARNING, "Vegetation", "Terrain trees/details are not exported.", "Vegetation is planned for a later version.");
             return res;
         }
     }
