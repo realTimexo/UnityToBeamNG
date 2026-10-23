@@ -2,7 +2,7 @@
 
 Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.drive mod ZIP.
 
-> **Status: alpha (v0.3.2).** Meshes, materials, spawn point, collision and terrain height have been confirmed working in BeamNG.drive 0.40. Terrain textures, the road network (AI) and traffic lights are new in 0.3.x and **not yet verified in game**. See [Known limitations](#known-limitations).
+> **Status: alpha (v0.4.0).** Meshes, materials, spawn point, collision and terrain height have been confirmed working in BeamNG.drive 0.40. Terrain textures, the road network (AI), traffic lights and (new in 0.4.0) **vegetation and the minimap** are **not yet verified in game**. See [Known limitations](#known-limitations).
 
 > **This project is vibe coded.** It was written together with an AI assistant and tested by hand. Expect rough edges, and please [report bugs](https://github.com/realTimexo/UnityToBeamNG/issues/new/choose) with the files listed below - that is how it gets better.
 
@@ -10,6 +10,8 @@ Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.d
 
 - One-click export of the open Unity scene to a BeamNG level ZIP (`levels/<name>/...`)
 - **Terrain** -> BeamNG `.ter` (version 9), multiple Unity terrains are merged, hole masks are kept, terrain layers become terrain materials
+- **Vegetation (new in 0.4.0)** -> trees from *Paint Trees* and grass/meshes from *Paint Details* become BeamNG forest items, trees with trunk collision
+- **Minimap (new in 0.4.0)** -> `minimap/terrain.png` + `info.json` entry
 - **Static meshes** -> COLLADA `.dae` (reused meshes are written once), placed as `TSStatic` objects with collision
 - **Materials and textures** -> `main.materials.json` + PNG textures (base color, metallic, roughness, tiling/offset baked into the UVs)
 - **Spawn point** from any empty GameObject (position and facing direction), optional ground snapping
@@ -61,6 +63,9 @@ levels/<levelname>/
   art/shapes/*.dae, art/shapes/main.materials.json
   art/textures/*.color.png
   art/terrains/main.materials.json
+  art/forest/managedItemData.json, forest/*.forest4.json   (if the terrain has trees/details)
+  main/MissionGroup/Vegetation/items.level.json            (Forest object)
+  minimap/terrain.png
 ```
 
 A fallback heightmap for the BeamNG World Editor terrain importer and an export manifest are written next to the ZIP in `extras/` (not part of the mod).
@@ -69,7 +74,7 @@ A fallback heightmap for the BeamNG World Editor terrain importer and an export 
 
 Not implemented yet:
 
-- Traffic light / traffic logic, road network objects (roads are exported as plain meshes), vegetation (terrain trees/details), water, minimap
+- Water, tree LODs/billboards and wind sway, stop/yield sign logic
 - Normal maps, emission and transparency (opaque base color only)
 - Per-vertex colors, skinned meshes, particle systems
 
@@ -80,6 +85,16 @@ Not verified in game yet (best guesses based on the BeamNG documentation):
 - Rotation matrix layout of rotated objects (fixed in 0.2.1, needs confirmation)
 
 If something is off, the export report says so. **A successful export means the files were created and structurally validated - it does not mean the map was tested in game.**
+
+## Vegetation and minimap (v0.4.0, untested in game)
+
+Open **Tools > Unity to BeamNG > Vegetation**.
+
+- Paint trees with *Paint Trees* and grass / rocks with *Paint Details* on your Unity Terrain, then export as usual. Tree prefabs need **Read/Write** enabled on their meshes (the tab has a button that does this for you).
+- **Trees collide** (trunk shape, `Colmesh-1` node in the DAE). Trees lower than 1.5 m (bushes) do not. Detail meshes can collide via a checkbox; grass never does.
+- **Details:** set the density and the instance budget. Millions of grass blades would make BeamNG slow, so the tool lowers the density automatically when the budget is exceeded (see the report).
+- Forest items have only one uniform scale, so tree width/height scale is averaged. No wind and no far LODs yet.
+- **Minimap:** created automatically (terrain colours, roads, buildings, trees) and added to `info.json`. If it is shifted or flipped in game, send a screenshot.
 
 ## Reporting bugs
 
