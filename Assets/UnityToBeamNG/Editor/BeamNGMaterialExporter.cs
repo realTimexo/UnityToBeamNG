@@ -12,6 +12,8 @@ namespace UnityToBeamNG
         readonly HashSet<string> used = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
         public readonly List<Material> Materials = new List<Material>();
         public bool UsesMissing;
+        /// <summary>Materials of leaves/grass: exported double-sided, alpha as cutout (set by the vegetation exporter).</summary>
+        public readonly HashSet<Material> Foliage = new HashSet<Material>();
 
         public string NameOf(Material m)
         {
@@ -85,7 +87,7 @@ namespace UnityToBeamNG
                     for (int i = 0; i < px.Length; i++) { byte a = px[i].a; op[i] = new Color32(a, a, a, 255); }
                     var topac = new Texture2D(w, h, TextureFormat.RGBA32, false, true);
                     topac.SetPixels32(op);
-                    var orel = UniqueFile(BeamNGEditorUtilities.SafeId(src.name) + "_opacity", relDir, ".dataR.png");
+                    var orel = UniqueFile(BeamNGEditorUtilities.SafeId(src.name) + "_o", relDir, ".data.png");
                     File.WriteAllBytes(c.Abs(orel), topac.EncodeToPNG());
                     Object.DestroyImmediate(topac);
                     c.Require(orel);
@@ -120,7 +122,7 @@ namespace UnityToBeamNG
         {
             var known = new bool[px.Length];
             for (int i = 0; i < px.Length; i++) known[i] = px[i].a >= 128;
-            for (int pass = 0; pass < 12; pass++)
+            for (int pass = 0; pass < 24; pass++)
             {
                 bool any = false;
                 var nk = (bool[])known.Clone();
@@ -146,7 +148,10 @@ namespace UnityToBeamNG
                 known = nk;
                 if (!any) break;
             }
-            for (int i = 0; i < px.Length; i++) { var q = px[i]; px[i] = new Color32(q.r, q.g, q.b, 255); }
+            long sr = 0, sg = 0, sb = 0, sn = 0;
+            for (int i = 0; i < px.Length; i++) if (known[i]) { sr += px[i].r; sg += px[i].g; sb += px[i].b; sn++; }
+            var avg = sn > 0 ? new Color32((byte)(sr / sn), (byte)(sg / sn), (byte)(sb / sn), 255) : new Color32(255, 255, 255, 255);
+            for (int i = 0; i < px.Length; i++) { var q = px[i]; px[i] = known[i] ? new Color32(q.r, q.g, q.b, 255) : avg; }
         }
 
 
@@ -290,8 +295,11 @@ namespace UnityToBeamNG
                     // no alpha in the texture: the transparent render mode would only make the object see-through/black
                     if (tintAlpha > 0.99f) { blend = false; cutout = false; noAlpha++; }
                 }
+                bool foliage = reg.Foliage.Contains(m);
+                // leaves / grass: soft alpha sorts badly -> alpha test, and both sides must be visible
+                if (foliage && opacityRel != null) { blend = false; cutout = true; }
                 if (blend) transparent++; else if (cutout) cutouts++;
-                bool doubleSided = m.HasProperty("_Cull") && Mathf.Approximately(m.GetFloat("_Cull"), 0f);
+                bool doubleSided = (m.HasProperty("_Cull") && Mathf.Approximately(m.GetFloat("_Cull"), 0f)) || foliage;
 
                 // Plain string / number values (an array-valued "baseColorMap" made BeamNG ignore the texture).
                 var stage = new JsonObj()
@@ -321,7 +329,7 @@ namespace UnityToBeamNG
                 var mat = new JsonObj()
                     .Str("name", name).Str("class", "Material").Str("mapTo", name).Num("version", 1.5f);
                 if (blend) mat.Bool("translucent", true).Str("translucentBlendOp", "LerpAlpha").Bool("translucentZWrite", true);
-                else if (cutout) mat.Bool("alphaTest", true).Num("alphaRef", Mathf.Clamp(m.HasProperty("_Cutoff") ? m.GetFloat("_Cutoff") * 255f : 127f, 1f, 254f));
+                else if (cutout) mat.Bool("alphaTest", true).Num("alphaRef", Mathf.Round(Mathf.Clamp(m.HasProperty("_Cutoff") ? m.GetFloat("_Cutoff") * 255f : 127f, 1f, 254f)));
                 if (doubleSided) mat.Bool("doubleSided", true);
                 mat.Raw("Stages", "[" + stage + ",{},{},{}]");
                 entries.Add(BeamNGJson.Q(name) + ":" + mat);
