@@ -21,7 +21,7 @@ namespace UnityToBeamNG
         public string beamNGInstallPath = "";        // optional, informational only
         public string beamNGModsFolder = "";         // optional target for "copy ZIP"
         public bool copyZipToModsFolder = false;
-        public string beamNGTargetVersion = "BeamNG.drive 0.40 (meshes/spawn tested, terrain untested)";
+        public string beamNGTargetVersion = "BeamNG.drive 0.40 (meshes/spawn tested; vegetation, minimap untested)";
 
         // --- Terrain ---
         public int terrainResolution = 1024;         // power of two, 64..8192
@@ -31,6 +31,17 @@ namespace UnityToBeamNG
         public bool exportTerrain = true;
         public bool exportMeshes = true;
         public bool collideAllByDefault = true;      // meshes without a collider still collide
+        public bool exportMinimap = true;            // top-down minimap image + info.json "minimap" entry
+        public int minimapResolution = 2048;         // 512..4096 (pixels, square)
+
+        // --- Vegetation (v0.4.0) ---
+        public bool exportVegetation = true;         // Unity terrain trees (Paint Trees) + details (Paint Details) -> BeamNG forest items
+        public bool treeCollision = true;            // trees get a trunk collision shape (Colmesh-1) + collidable = true
+        public float minCollidableTreeHeight = 1.5f; // trees lower than this (bushes) get no collision
+        public bool exportDetails = true;            // grass / detail meshes from Paint Details
+        public float detailDensity = 0.5f;           // 0.05..1: share of Unity's detail instances that is exported
+        public int maxDetailInstances = 200000;      // hard budget; density is reduced automatically if exceeded
+        public bool detailMeshCollision = false;     // collision (bounding box) for detail MESHES (rocks etc.); grass never collides
 
         // --- Spawn ---
         public bool terrainTextureSet = false;       // EXPERIMENTAL: PBR v1.5 terrain materials with a TerrainMaterialTextureSet (can crash BeamNG if the set is not found)
