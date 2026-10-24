@@ -277,20 +277,20 @@ namespace UnityToBeamNG
                     .Str("heightDetailTex", c.VPath(midD)).Num("heightDetailTexSize", 4).Raw("heightDetailStrength", "[0,0]");
                 entries.Add(BeamNGJson.Q(names[i]) + ":" + o);
             }
-            File.WriteAllText(c.Abs("art/terrains/main.materials.json"), "{\n" + string.Join(",\n", entries) + "\n}\n", new UTF8Encoding(false));
-            c.Require("art/terrains/main.materials.json");
-            if (c.Settings.terrainTextureSet)
+            if (c.Settings.terrainPbr)
             {
-                // EXPERIMENTAL: where BeamNG expects the TerrainMaterialTextureSet is not documented.
-                // A TerrainBlock that points to a missing set crashed BeamNG (D3D12 assert), so this is opt-in.
-                res.TextureSetName = c.Settings.levelName + "_textureset";
+                // PBR v1.5: the TerrainBlock references a TerrainMaterialTextureSet (docs: TerrainBlock.materialTextureSet, defined in
+                // art/terrains/main.materials.json, pixel sizes [w,h]). It is written FIRST in the file; the structure check aborts the
+                // export if the TerrainBlock refers to a set that is not defined or if a texture does not match its slot size.
+                res.TextureSetName = BeamNGEditorUtilities.SafeId(c.Settings.levelName) + "TerrainMaterialTextureSet";
                 res.TextureSetSizes = new[] { BaseSz, MacroSz, DetailSz };
                 var tsLine = new JsonObj().Str("class", "TerrainMaterialTextureSet").Str("name", res.TextureSetName)
                     .Str("internalName", res.TextureSetName)
                     .Arr("baseTexSize", BaseSz, BaseSz).Arr("macroTexSize", MacroSz, MacroSz).Arr("detailTexSize", DetailSz, DetailSz);
-                entries.Add(BeamNGJson.Q(res.TextureSetName) + ":" + tsLine);
-                File.WriteAllText(c.Abs("art/terrains/main.materials.json"), "{\n" + string.Join(",\n", entries) + "\n}\n", new UTF8Encoding(false));
+                entries.Insert(0, BeamNGJson.Q(res.TextureSetName) + ":" + tsLine);
             }
+            File.WriteAllText(c.Abs("art/terrains/main.materials.json"), "{\n" + string.Join(",\n", entries) + "\n}\n", new UTF8Encoding(false));
+            c.Require("art/terrains/main.materials.json");
 
             // --- Fallback import: 16-bit PNG + values (not in the mod ZIP) ---
             Directory.CreateDirectory(c.ExtrasDir);
@@ -305,7 +305,7 @@ namespace UnityToBeamNG
             if (Mathf.Abs((maxX - minX) - (maxZ - minZ)) > 0.01f) r.Add(ReportStatus.WARNING, "Terrain", "Terrain is not square: empty areas are marked as holes (no collision).");
             if (holesTotal > 0) r.Add(ReportStatus.PASS, "Terrain", $"{holesTotal:N0} sample(s) marked as hole (255) (hole mask / empty areas).");
             r.Add(ReportStatus.WARNING, "Terrain", ".ter file follows the docs (version 9). Not documented and therefore UNVERIFIED: material name encoding and row order.", "Load the map: if the terrain is missing or flipped, use extras/theTerrain_heightmap16.png with the World Editor terrain importer.");
-            r.Add(ReportStatus.WARNING, "Terrain", "Terrain textures: classic (v1) terrain material per Unity layer (diffuseMap + size). The PBR texture-set mode is experimental and off by default. Not yet confirmed in game.", "If still black, send beamng.log.");
+            r.Add(ReportStatus.WARNING, "Terrain", c.Settings.terrainPbr ? "Terrain textures: PBR (v1.5) terrain materials with a TerrainMaterialTextureSet (" + names.Count + " layer(s), base 1024 / macro 512 / detail 512 px). Not yet confirmed in game." : "Terrain textures: classic (v1) terrain material per Unity layer. BeamNG may show only the average colour of the texture in this mode - enable 'PBR terrain textures' in the Modules tab.", "If still black, send beamng.log.");
             return res;
         }
     }
