@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1 (alpha)
+- Fix (beamng.log / Unity warning): texture file names are shortened (max 40 chars + hash) - Windows "Could not find a part of the path" for very long sign texture names; temp folder name shortened.
+- Fix (beamng.log): materials named `Camera`, `spotlight`, `Material` (and other BeamNG class names) were not mapped; they get the prefix `m_`.
+- Terrain textures: PBR (v1.5) mode with `TerrainMaterialTextureSet` is now the default (setting `terrainPbr`). The set is written first in `art/terrains/main.materials.json`; structure check aborts the export if the set is undefined or a texture size does not match its slot. Classic mode kept as a switch.
+- Minimap: `minimapImage` on the TerrainBlock (no leading slash) in addition to the `info.json` entry; resolution "Auto" = terrain size (max 2048).
+- Vegetation: LODs per BeamNG mapping guide (`<name>_a100`, `bb_autobillboard25`, `nulldetail10`; grass `_a12` + `nulldetail4`), wind (vertex colours R = bend, G = phase, B = flutter; bark black; `windScale` + `ForestWindEmitter`), tree collision only above 2.5 m (default), per-tree-type report lines.
+- README: logo, preview image, how-to GIF.
+
 ## 0.4.0 (alpha)
 - **New: vegetation.** Trees painted with Unity's *Paint Trees* and grass / meshes painted with *Paint Details* on a Unity Terrain are exported as BeamNG forest items: `art/forest/managedItemData.json` (type `TSForestItemData`), `forest/<type>.forest4.json` (one JSON object per line: `type`, `pos`, `rotationMatrix`, `scale`) and a `Forest` object (`theForest`) in a new `Vegetation` group. Format taken from the BeamNG docs (Forest Data / Forest class).
   - Tree prefabs (LOD0 only, billboards skipped) are merged into one DAE per prefab; materials/textures go through the normal material export. Leaf/grass materials are exported double-sided with alpha test.
