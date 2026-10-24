@@ -74,6 +74,20 @@ namespace UnityToBeamNG
         }
 
 
+        static int PngWidth(string path)
+        {
+            try
+            {
+                using (var fs = File.OpenRead(path))
+                {
+                    var b = new byte[24];
+                    if (fs.Read(b, 0, 24) < 24) return -1;
+                    return (b[16] << 24) | (b[17] << 16) | (b[18] << 8) | b[19];
+                }
+            }
+            catch { return -1; }
+        }
+
         static int CheckReferences(BeamNGExportContext c)
         {
             var r = c.Report;
@@ -84,7 +98,7 @@ namespace UnityToBeamNG
             var rxName = new System.Text.RegularExpressions.Regex("\"name\":\"([^\"]*)\"");
             var rxClass = new System.Text.RegularExpressions.Regex("\"class\":\"([^\"]*)\"");
             var rxParent = new System.Text.RegularExpressions.Regex("\"__parent\":\"([^\"]*)\"");
-            var rxFile = new System.Text.RegularExpressions.Regex("\"(?:shapeName|terrainFile)\":\"([^\"]*)\"");
+            var rxFile = new System.Text.RegularExpressions.Regex("\"(?:shapeName|terrainFile|minimapImage)\":\"([^\"]*)\"");
 
             foreach (var f in Directory.GetFiles(Path.Combine(c.LevelDir, "main"), "items.level.json", SearchOption.AllDirectories))
             {
@@ -121,6 +135,38 @@ namespace UnityToBeamNG
                 foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, "\"(/levels/[^\"]+\\.png)\""))
                     if (!File.Exists(Path.Combine(c.Root, m.Groups[1].Value.TrimStart('/').Replace('/', Path.DirectorySeparatorChar))))
                     { errors++; r.Add(ReportStatus.ERROR, "Structure", "Texture missing: " + m.Groups[1].Value); }
+            }
+
+            // --- PBR terrain: the TerrainBlock must refer to a defined TerrainMaterialTextureSet and every texture must match its slot size
+            //     (BeamNG crashed with a D3D12 error when the set was missing) ---
+            var terrItems = Path.Combine(c.LevelDir, "main", "MissionGroup", "Terrain", "items.level.json");
+            if (File.Exists(terrItems))
+            {
+                var sm0 = System.Text.RegularExpressions.Regex.Match(File.ReadAllText(terrItems), "\"materialTextureSet\":\"([^\"]*)\"");
+                if (sm0.Success)
+                {
+                    var terMat = Path.Combine(c.LevelDir, "art", "terrains", "main.materials.json");
+                    var tm = File.Exists(terMat) ? File.ReadAllText(terMat) : "";
+                    var setM = System.Text.RegularExpressions.Regex.Match(tm, "\"" + System.Text.RegularExpressions.Regex.Escape(sm0.Groups[1].Value) + "\":\\{[^{}]*\"class\":\"TerrainMaterialTextureSet\"[^{}]*\\}");
+                    if (!setM.Success)
+                    { errors++; r.Add(ReportStatus.ERROR, "Structure", "TerrainBlock uses materialTextureSet '" + sm0.Groups[1].Value + "' but it is not defined in art/terrains/main.materials.json (BeamNG would crash)."); }
+                    else
+                    {
+                        var slot = new Dictionary<string, int>();
+                        foreach (var kind in new[] { "base", "macro", "detail" })
+                        {
+                            var km = System.Text.RegularExpressions.Regex.Match(setM.Value, "\"" + kind + "TexSize\":\\[(\\d+),");
+                            slot[kind] = km.Success ? int.Parse(km.Groups[1].Value) : 0;
+                        }
+                        foreach (System.Text.RegularExpressions.Match t in System.Text.RegularExpressions.Regex.Matches(tm, "\"[A-Za-z]+?(Base|Macro|Detail)Tex\":\"(/levels/[^\"]+\\.png)\""))
+                        {
+                            var file = Path.Combine(c.Root, t.Groups[2].Value.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                            int w = PngWidth(file);
+                            int want = slot[t.Groups[1].Value.ToLowerInvariant()];
+                            if (w != want) { errors++; r.Add(ReportStatus.ERROR, "Structure", $"Terrain texture {t.Groups[2].Value} is {w}px wide but its slot is {want}px (BeamNG requires exact sizes)."); }
+                        }
+                    }
+                }
             }
 
             // --- forest: every item type needs an existing shape, every placement a defined type ---
