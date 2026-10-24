@@ -28,7 +28,8 @@ namespace UnityToBeamNG
         {
             var s = c.Settings; var r = c.Report;
             if (!s.exportMinimap) return null;
-            int N = Mathf.Clamp(Mathf.ClosestPowerOfTwo(Mathf.Max(256, s.minimapResolution)), 256, 4096);
+            int want = s.minimapResolution > 0 ? s.minimapResolution : (terrain != null ? Mathf.Min(terrain.Size, 2048) : 2048);
+            int N = Mathf.Clamp(Mathf.ClosestPowerOfTwo(Mathf.Max(256, want)), 256, 4096);
 
             // ----- extent -----
             var res = new MinimapResult { Pixels = N };
