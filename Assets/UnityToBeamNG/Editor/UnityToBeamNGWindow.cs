@@ -6,7 +6,7 @@ namespace UnityToBeamNG
 {
     public class UnityToBeamNGWindow : EditorWindow
     {
-        public const string ToolVersion = "0.4.0";
+        public const string ToolVersion = "0.4.1";
         public const string RepoUrl = "https://github.com/realTimexo/UnityToBeamNG";
         public const string ReleasesUrl = "https://github.com/realTimexo/UnityToBeamNG/releases";
         public const string IssuesUrl = "https://github.com/realTimexo/UnityToBeamNG/issues";
@@ -215,13 +215,22 @@ namespace UnityToBeamNG
             }
             if (GUILayout.Button("Enable Read/Write on tree & detail models (fixes 'not readable')", GUILayout.Height(24)))
                 EditorUtility.DisplayDialog("Vegetation", EnableReadWriteOnVegetation() + " model(s) changed and re-imported.", "OK");
-            EditorGUILayout.HelpBox("Forest items support one uniform scale (tree width/height scale is averaged). No wind sway and no distance LOD/billboards yet. Collision uses a 'Colmesh-1' node in the tree DAE (untested in game).", MessageType.Warning);
+            using (new EditorGUI.DisabledScope(!s.exportVegetation))
+            {
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField("Distance & wind", EditorStyles.boldLabel);
+                s.forestLods = EditorGUILayout.ToggleLeft("LODs: automatic billboard for far trees, far culling of grass/details", s.forestLods);
+                s.vegetationWind = EditorGUILayout.ToggleLeft("Wind sway (vertex colours + wind emitter)", s.vegetationWind);
+                using (new EditorGUI.DisabledScope(!s.vegetationWind))
+                    s.windStrength = EditorGUILayout.Slider("Wind strength (windScale)", s.windStrength, 0.1f, 2f);
+            }
+            EditorGUILayout.HelpBox("Forest items support one uniform scale (tree width/height scale is averaged). Collision uses a 'Colmesh-1' node, LODs/billboards and wind follow a BeamNG mapping guide (untested in game). The tree list with collision info is in the Report tab.", MessageType.Warning);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Minimap", EditorStyles.boldLabel);
             s.exportMinimap = EditorGUILayout.ToggleLeft("Create minimap (terrain colours, roads, buildings, trees)", s.exportMinimap);
             using (new EditorGUI.DisabledScope(!s.exportMinimap))
-                s.minimapResolution = EditorGUILayout.IntPopup("Minimap resolution", s.minimapResolution, new[] { "512", "1024", "2048", "4096" }, new[] { 512, 1024, 2048, 4096 });
+                s.minimapResolution = EditorGUILayout.IntPopup("Minimap resolution", s.minimapResolution, new[] { "Auto (terrain size, max 2048)", "512", "1024", "2048", "4096" }, new[] { 0, 512, 1024, 2048, 4096 });
         }
 
         static int EnableReadWriteOnVegetation()
@@ -256,7 +265,7 @@ namespace UnityToBeamNG
         {
             s.exportTerrain = EditorGUILayout.ToggleLeft("Terrain (.ter + terrain materials)", s.exportTerrain);
             s.exportMeshes = EditorGUILayout.ToggleLeft("Static meshes (.dae, TSStatic) incl. materials/textures", s.exportMeshes);
-            s.terrainTextureSet = EditorGUILayout.ToggleLeft("EXPERIMENTAL: terrain PBR texture set (may crash BeamNG, off by default)", s.terrainTextureSet);
+            s.terrainPbr = EditorGUILayout.ToggleLeft("PBR terrain textures (real Unity terrain textures in BeamNG; switch off if BeamNG crashes on load)", s.terrainPbr);
             s.collideAllByDefault = EditorGUILayout.ToggleLeft("All meshes collide (otherwise only with a collider)", s.collideAllByDefault);
             EditorGUILayout.HelpBox("Can be overridden per object with the 'BeamNG/Collision Settings' component (collision: Auto/None/VisibleMesh/Bounds, exclude object).", MessageType.None);
             EditorGUILayout.Space();
