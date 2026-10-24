@@ -13,6 +13,16 @@ namespace UnityToBeamNG
         public int[] T;
     }
 
+    /// <summary>Extras for forest shapes (all optional): collision node, LOD naming ("_a&lt;px&gt;"), auto billboard, null detail, vertex colours (wind).</summary>
+    public class ShapeOptions
+    {
+        public ColMesh Col;
+        public int LodPixels;        // > 0: mesh node is named "<name>_a<px>" (BeamNG/Torque detail level = min. on-screen size in pixels)
+        public int BillboardPixels;  // > 0: empty node "bb_autobillboard<px>" under base00 (engine generates a billboard LOD)
+        public int NullPixels;       // > 0: empty node "nulldetail<px>" under base00 (nothing is drawn below this size)
+        public bool Colors;          // write Mesh.colors as COLOR input (wind weights)
+    }
+
     /// <summary>
     /// Writes meshes as COLLADA 1.4.1 (.dae): Z-up, meters, hierarchy base00 > start01 > mesh (per BeamNG docs),
     /// axes converted to BeamNG, triangle winding reversed. The object transform
@@ -31,9 +41,13 @@ namespace UnityToBeamNG
         }
 
         /// <summary>tiling: per submesh (scaleX, scaleY, offsetX, offsetY) baked into the UVs (null = unchanged).</summary>
-        public static void Write(TextWriter w, Mesh m, string name, string[] matSymbols, BeamNGExportReport r, Vector4[] tiling = null, Vector3? mirror = null, ColMesh col = null)
+        public static void Write(TextWriter w, Mesh m, string name, string[] matSymbols, BeamNGExportReport r, Vector4[] tiling = null, Vector3? mirror = null, ShapeOptions opt = null)
         {
             var id = BeamNGEditorUtilities.NodeName(name);
+            var col = opt != null ? opt.Col : null;
+            var nodeName = (opt != null && opt.LodPixels > 0) ? BeamNGEditorUtilities.SafeId(name) + "_a" + opt.LodPixels : id;
+            var cols = (opt != null && opt.Colors) ? m.colors : null;
+            bool hasC = cols != null && cols.Length == m.vertexCount && cols.Length > 0;
             var mir = mirror ?? Vector3.one;
             bool flip = mir.x * mir.y * mir.z < 0f;
             var verts = m.vertices;
@@ -88,6 +102,12 @@ namespace UnityToBeamNG
                 }
                 w.WriteLine("</float_array><technique_common><accessor source=\"#" + id + "-uv-arr\" count=\"" + uv.Length + "\" stride=\"2\"><param name=\"S\" type=\"float\"/><param name=\"T\" type=\"float\"/></accessor></technique_common></source>");
             }
+            if (hasC)
+            {
+                w.Write("<source id=\"" + id + "-col\"><float_array id=\"" + id + "-col-arr\" count=\"" + cols.Length * 4 + "\">");
+                foreach (var cc in cols) { w.Write(F(cc.r)); w.Write(' '); w.Write(F(cc.g)); w.Write(' '); w.Write(F(cc.b)); w.Write(' '); w.Write(F(cc.a)); w.Write(' '); }
+                w.WriteLine("</float_array><technique_common><accessor source=\"#" + id + "-col-arr\" count=\"" + cols.Length + "\" stride=\"4\"><param name=\"R\" type=\"float\"/><param name=\"G\" type=\"float\"/><param name=\"B\" type=\"float\"/><param name=\"A\" type=\"float\"/></accessor></technique_common></source>");
+            }
             w.WriteLine("<vertices id=\"" + id + "-vtx\"><input semantic=\"POSITION\" source=\"#" + id + "-pos\"/></vertices>");
 
             for (int s = 0; s < m.subMeshCount; s++)
@@ -102,6 +122,7 @@ namespace UnityToBeamNG
                 w.Write("<input semantic=\"VERTEX\" source=\"#" + id + "-vtx\" offset=\"0\"/>");
                 if (hasN) w.Write("<input semantic=\"NORMAL\" source=\"#" + id + "-nrm\" offset=\"0\"/>");
                 if (hasUV) w.Write("<input semantic=\"TEXCOORD\" source=\"#" + id + "-uv\" offset=\"0\" set=\"0\"/>");
+                if (hasC) w.Write("<input semantic=\"COLOR\" source=\"#" + id + "-col\" offset=\"0\" set=\"0\"/>");
                 w.Write("<p>");
                 for (int i = 0; i < tris.Length; i += 3)
                 { int a = tris[i], b2 = flip ? tris[i + 1] : tris[i + 2], c2 = flip ? tris[i + 2] : tris[i + 1]; w.Write(a); w.Write(' '); w.Write(b2); w.Write(' '); w.Write(c2); w.Write(' '); }
@@ -123,8 +144,11 @@ namespace UnityToBeamNG
             w.WriteLine("</library_geometries>");
 
             w.WriteLine("<library_visual_scenes><visual_scene id=\"Scene\">");
-            w.WriteLine("<node id=\"base00\" name=\"base00\" type=\"NODE\"><node id=\"start01\" name=\"start01\" type=\"NODE\">");
-            w.WriteLine("<node id=\"" + id + "\" name=\"" + id + "\" type=\"NODE\"><instance_geometry url=\"#" + id + "-geom\"><bind_material><technique_common>");
+            w.WriteLine("<node id=\"base00\" name=\"base00\" type=\"NODE\">");
+            if (opt != null && opt.BillboardPixels > 0) w.WriteLine("<node id=\"bb_autobillboard" + opt.BillboardPixels + "\" name=\"bb_autobillboard" + opt.BillboardPixels + "\" type=\"NODE\"/>");
+            if (opt != null && opt.NullPixels > 0) w.WriteLine("<node id=\"nulldetail" + opt.NullPixels + "\" name=\"nulldetail" + opt.NullPixels + "\" type=\"NODE\"/>");
+            w.WriteLine("<node id=\"start01\" name=\"start01\" type=\"NODE\">");
+            w.WriteLine("<node id=\"" + nodeName + "\" name=\"" + nodeName + "\" type=\"NODE\"><instance_geometry url=\"#" + id + "-geom\"><bind_material><technique_common>");
             foreach (var s in uniq) w.WriteLine("<instance_material symbol=\"" + s + "-material\" target=\"#" + s + "-material\"/>");
             w.WriteLine("</technique_common></bind_material></instance_geometry></node>");
             if (col != null && col.V != null && col.T != null && col.T.Length >= 9)
@@ -180,7 +204,7 @@ namespace UnityToBeamNG
                 string rel;
                 if (!files.TryGetValue(key, out rel))
                 {
-                    rel = "art/shapes/" + BeamNGEditorUtilities.SafeId(inst.Mesh.name) + "_" + (counter++) + ".dae";
+                    rel = "art/shapes/" + BeamNGEditorUtilities.ShortId(inst.Mesh.name, 40) + "_" + (counter++) + ".dae";
                     using (var sw = new StreamWriter(c.Abs(rel), false, new UTF8Encoding(false), 1 << 16))
                         Write(sw, inst.Mesh, inst.Mesh.name, syms, c.Report, tiling, mirror);
                     files[key] = rel;
