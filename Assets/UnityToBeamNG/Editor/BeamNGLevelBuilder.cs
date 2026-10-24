@@ -99,6 +99,10 @@ namespace UnityToBeamNG
                     .Str("utcOffset", "2").Str("celestialProfile", "earth").ToString(),
                 new JsonObj().Str("name", "sunsky").Str("class", "ScatterSky").Str("__parent", "Environment").ToString()
             };
+            if (veg != null && veg.HasForest && s.vegetationWind)
+                env.Add(new JsonObj().Str("class", "ForestWindEmitter").Str("name", "forest_wind").Str("__parent", "Environment")
+                    .Arr("position", 0, 0, 0).Bool("windEnabled", true).Bool("radialEmitter", false).Num("strength", 1f).Num("gustStrength", 0.5f)
+                    .Num("gustFrequency", 3f).Num("gustYawAngle", 10f).Num("gustYawFrequency", 4f).Num("turbulenceStrength", 0.25f).Num("turbulenceFrequency", 2f).ToString());
             WriteLines(c, MG + "Environment/items.level.json", env);
 
             // --- Terrain ---
@@ -111,6 +115,7 @@ namespace UnityToBeamNG
                     .Arr("rotationMatrix", 1, 0, 0, 0, 1, 0, 0, 0, 1)
                     .Num("squareSize", terrain.SquareSize).Num("maxHeight", terrain.MaxHeight).Bool("castShadows", true);
                 if (!string.IsNullOrEmpty(terrain.TextureSetName)) tb.Str("materialTextureSet", terrain.TextureSetName);
+                if (mini != null) tb.Str("minimapImage", "levels/" + s.levelName + "/" + MinimapResult.File); // docs: TerrainBlock.minimapImage (no leading slash)
                 terLines.Add(tb.ToString());
             }
             if (terLines.Count > 0) WriteLines(c, MG + "Terrain/items.level.json", terLines);
