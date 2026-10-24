@@ -32,6 +32,7 @@ namespace UnityToBeamNG
             public string Name;
             public string ShapeRel;
             public bool Collidable;
+            public bool Wind;
             public float Radius = 1f;
             public StreamWriter Writer;
             public string ForestRel;
@@ -156,7 +157,7 @@ namespace UnityToBeamNG
         }
 
         /// <summary>Combines all (LOD0) renderers of a prefab into ONE mesh with one submesh per material. Returns null if nothing usable.</summary>
-        static Mesh CombinePrefab(GameObject prefab, string name, out int unreadable)
+        static Mesh CombinePrefab(GameObject prefab, string name, bool wind, out int unreadable)
         {
             unreadable = 0;
             var rends = CollectRenderers(prefab);
@@ -164,6 +165,7 @@ namespace UnityToBeamNG
             var root = prefab.transform;
             var verts = new List<Vector3>(); var nrm = new List<Vector3>(); var uvs = new List<Vector2>();
             var accs = new List<MatAcc>();
+            var vFol = new List<bool>();
             foreach (var mr in rends)
             {
                 var mesh = mr.GetComponent<MeshFilter>().sharedMesh;
@@ -180,6 +182,7 @@ namespace UnityToBeamNG
                     var n = (mn != null && mn.Length == mv.Length) ? N.MultiplyVector(mn[i]).normalized : Vector3.up;
                     nrm.Add(n);
                     uvs.Add((mu != null && mu.Length == mv.Length) ? mu[i] : Vector2.zero);
+                    vFol.Add(false);
                 }
                 var mats = mr.sharedMaterials;
                 for (int sm = 0; sm < mesh.subMeshCount; sm++)
@@ -190,6 +193,8 @@ namespace UnityToBeamNG
                     foreach (var a in accs) if (a.Mat == mat) { acc = a; break; }
                     if (acc == null) { acc = new MatAcc { Mat = mat }; accs.Add(acc); }
                     var tr = mesh.GetTriangles(sm);
+                    bool fol = LooksLikeFoliage(mat);
+                    if (fol) foreach (var ix in tr) vFol[baseIdx + ix] = true;
                     for (int i = 0; i + 2 < tr.Length; i += 3)
                     {
                         acc.Tris.Add(baseIdx + tr[i]);
@@ -205,17 +210,41 @@ namespace UnityToBeamNG
             res.subMeshCount = accs.Count;
             for (int i = 0; i < accs.Count; i++) res.SetTriangles(accs[i].Tris, i);
             res.RecalculateBounds();
+            if (wind) res.colors = WindColors(verts, vFol, res.bounds);
             _lastMats = new Material[accs.Count];
             for (int i = 0; i < accs.Count; i++) _lastMats[i] = accs[i].Mat;
             return res;
         }
         static Material[] _lastMats;
 
+        static float Hash01(float x, float y, float z)
+        {
+            float v = Mathf.Sin(x * 12.9898f + y * 78.233f + z * 37.719f) * 43758.5453f;
+            return v - Mathf.Floor(v);
+        }
+
+        /// <summary>Wind weights as vertex colours (BeamNG mapping guide: red = bend of the mesh, green = per-branch phase, blue = leaf flutter; bark/trunk stays black).</summary>
+        static Color[] WindColors(List<Vector3> verts, List<bool> foliage, Bounds b)
+        {
+            bool any = false; foreach (var f in foliage) if (f) { any = true; break; }
+            float hgt = Mathf.Max(0.1f, b.size.y);
+            var cols = new Color[verts.Count];
+            for (int i = 0; i < cols.Length; i++)
+            {
+                float h = Mathf.Clamp01((verts[i].y - b.min.y) / hgt);
+                bool fol = any ? foliage[i] : h > 0.4f; // no recognisable leaf material: upper part of the tree sways
+                if (!fol) { cols[i] = new Color(0f, 0f, 0f, 1f); continue; }
+                float ph = Hash01(Mathf.Floor(verts[i].x * 2f), Mathf.Floor(verts[i].y * 2f), Mathf.Floor(verts[i].z * 2f));
+                cols[i] = new Color(h, ph, 0.7f, 1f);
+            }
+            return cols;
+        }
+
         // ---------- collision estimate ----------
 
-        static ColMesh TrunkCollision(GameObject prefab, Mesh mesh, float minHeight, out bool tooLow)
+        static ColMesh TrunkCollision(GameObject prefab, Mesh mesh, float minHeight, out bool tooLow, out float trunkRadius)
         {
-            tooLow = false;
+            tooLow = false; trunkRadius = 0f;
             var b = mesh.bounds;
             float height = b.size.y;
             if (height < minHeight) { tooLow = true; return null; }
@@ -239,6 +268,7 @@ namespace UnityToBeamNG
             }
             float maxR = 0.5f * Mathf.Min(b.size.x, b.size.z);
             radius = Mathf.Clamp(radius, 0.08f, Mathf.Max(0.1f, Mathf.Min(1.5f, maxR)));
+            trunkRadius = radius;
             float top = y0 + Mathf.Min(height * 0.7f, 8f);
             return MakePrism(new Vector2(cx, cz), radius, y0, top, 8);
         }
@@ -251,7 +281,7 @@ namespace UnityToBeamNG
             var s = c.Settings;
             int unread;
             var id = BeamNGEditorUtilities.SafeId(baseName);
-            var mesh = CombinePrefab(prefab, id, out unread);
+            var mesh = CombinePrefab(prefab, id, s.vegetationWind, out unread);
             unreadableTotal += unread;
             if (mesh == null)
             {
@@ -265,22 +295,33 @@ namespace UnityToBeamNG
             ColMesh col = null; bool collidable = false; float radius = 1f;
             if (isTree && s.treeCollision)
             {
-                bool low; col = TrunkCollision(prefab, mesh, s.minCollidableTreeHeight, out low);
+                bool low; float tr;
+                col = TrunkCollision(prefab, mesh, s.minCollidableTreeHeight, out low, out tr);
                 if (low) lowTrees++;
                 collidable = col != null;
                 radius = Mathf.Max(0.5f, 0.25f * Mathf.Max(mesh.bounds.size.x, mesh.bounds.size.z));
+                c.Report.Add(ReportStatus.PASS, "Vegetation", $"Tree '{prefab.name}': {mesh.bounds.size.y:0.#} m high, " + (collidable ? $"trunk collision r={tr:0.##} m" : $"no collision (lower than {s.minCollidableTreeHeight:0.#} m)") + ".");
             }
             else if (!isTree && s.detailMeshCollision)
             {
                 col = MakeBox(mesh.bounds); collidable = true;
             }
-            return WriteShape(c, reg, mesh, mats, id, isTree ? "tree" : "detail", col, collidable, radius, usedNames);
+            bool wind = s.vegetationWind && (isTree || Array.Exists(mats, m => LooksLikeFoliage(m)));
+            var opt = new ShapeOptions { Col = col, Colors = wind && mesh.colors != null && mesh.colors.Length == mesh.vertexCount };
+            if (s.forestLods)
+            {
+                if (isTree) { opt.LodPixels = 100; opt.BillboardPixels = 25; opt.NullPixels = 10; }
+                else { opt.LodPixels = 20; opt.NullPixels = 6; }
+            }
+            var it = WriteShape(c, reg, mesh, mats, id, isTree ? "tree" : "detail", opt, collidable, radius, usedNames);
+            it.Wind = wind;
+            return it;
         }
 
         static ItemType WriteShape(BeamNGExportContext c, BeamNGMaterialRegistry reg, Mesh mesh, Material[] mats, string id, string prefix,
-                                   ColMesh col, bool collidable, float radius, Dictionary<string, int> usedNames)
+                                   ShapeOptions opt, bool collidable, float radius, Dictionary<string, int> usedNames)
         {
-            var type = prefix + "_" + id;
+            var type = prefix + "_" + BeamNGEditorUtilities.ShortId(id, 32);
             int k; usedNames.TryGetValue(type, out k); usedNames[type] = k + 1;
             if (k > 0) type += "_" + (k + 1);
             var rel = "art/shapes/" + type + ".dae";
@@ -293,7 +334,7 @@ namespace UnityToBeamNG
                 tiling[sm] = new Vector4(sc.x, sc.y, of.x, of.y);
             }
             using (var sw = new StreamWriter(c.Abs(rel), false, new UTF8Encoding(false), 1 << 16))
-                BeamNGMeshExporter.Write(sw, mesh, type, syms, c.Report, tiling, null, col);
+                BeamNGMeshExporter.Write(sw, mesh, type, syms, c.Report, tiling, null, opt);
             c.Require(rel);
             return new ItemType { Name = type, ShapeRel = rel, Collidable = collidable, Radius = radius };
         }
@@ -317,6 +358,14 @@ namespace UnityToBeamNG
             var mesh = new Mesh { name = "grass_card", hideFlags = HideFlags.DontSave };
             mesh.SetVertices(verts); mesh.SetNormals(nrm); mesh.SetUVs(0, uv); mesh.SetTriangles(tris, 0);
             mesh.RecalculateBounds();
+            bool wind = c.Settings.vegetationWind;
+            if (wind)
+            {
+                var gc = new Color[verts.Count];
+                for (int i = 0; i < gc.Length; i++)
+                    gc[i] = verts[i].y < 0.001f ? new Color(0, 0, 0, 1) : new Color(1f, Hash01(Mathf.Floor(i / 4f), 1f, 2f), 0.8f, 1f); // only the upper edge moves
+                mesh.colors = gc;
+            }
 
             var tex = TintedCopy(dp.prototypeTexture, Color.Lerp(dp.healthyColor, dp.dryColor, 0.2f));
             var shader = Shader.Find("Standard") ?? Shader.Find("Sprites/Default");
@@ -325,7 +374,11 @@ namespace UnityToBeamNG
             if (mat.HasProperty("_Cutoff")) mat.SetFloat("_Cutoff", 0.35f);
             if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.05f);
             reg.Foliage.Add(mat);
-            return WriteShape(c, reg, mesh, new[] { mat }, "grass_" + BeamNGEditorUtilities.SafeId(dp.prototypeTexture.name), "detail", null, false, 0.5f, usedNames);
+            var gopt = new ShapeOptions { Colors = wind };
+            if (c.Settings.forestLods) { gopt.LodPixels = 12; gopt.NullPixels = 4; }
+            var git = WriteShape(c, reg, mesh, new[] { mat }, "grass_" + BeamNGEditorUtilities.SafeId(dp.prototypeTexture.name), "detail", gopt, false, 0.5f, usedNames);
+            git.Wind = wind;
+            return git;
         }
 
         /// <summary>Readable RGBA copy of src multiplied by tint (rgb only, alpha untouched).</summary>
@@ -515,7 +568,7 @@ namespace UnityToBeamNG
                 {
                     var o = new JsonObj().Str("class", "TSForestItemData").Str("internalName", it.Name).Str("shapeFile", c.VPath(it.ShapeRel))
                         .Bool("collidable", it.Collidable).Num("radius", it.Radius).Bool("snapRotationToTerrain", false)
-                        .Num("windScale", 0f).Num("trunkBendScale", 0.4f).Num("branchAmp", 1f).Num("detailAmp", 0.25f).Num("detailFreq", 1f)
+                        .Num("windScale", it.Wind ? s.windStrength : 0f).Num("trunkBendScale", 0.4f).Num("branchAmp", 1f).Num("detailAmp", 0.25f).Num("detailFreq", 1f)
                         .Num("mass", 5f).Num("rigidity", 10f).Num("tightnessCoefficient", 0.4f).Num("dampingCoefficient", 0.7f);
                     entries.Add(BeamNGJson.Q(it.Name) + ":" + o);
                 }
@@ -529,7 +582,7 @@ namespace UnityToBeamNG
                 r.Exported += res.TreeInstances + res.DetailInstances;
                 r.Add(ReportStatus.PASS, "Vegetation", $"{res.TreeInstances:N0} tree(s) and {res.DetailInstances:N0} detail instance(s) of {res.ItemTypes} item type(s) written to forest/*.forest4.json + art/forest/managedItemData.json; {res.CollidableTrees:N0} tree(s) with trunk collision.");
                 r.Add(ReportStatus.WARNING, "Vegetation", "Forest files follow the BeamNG docs (managedItemData.json, .forest4.json, Forest object). The collision node name 'Colmesh-1' inside the DAE is NOT documented and untested in game.", "Drive into a tree after loading. If you pass through, send beamng.log and tell me.");
-                r.Add(ReportStatus.MANUAL, "Vegetation", "Forest items have ONE uniform scale: tree width/height scale is averaged. No wind sway (windScale 0) and no far-distance LOD/billboards are generated.", "");
+                r.Add(ReportStatus.MANUAL, "Vegetation", "Forest items have ONE uniform scale: tree width/height scale is averaged. Wind (vertex colours + windScale) and LODs/billboards follow a BeamNG mapping guide; BeamNG's own docs do not specify the wind material flag, so sway is untested.", "");
             }
             if (res.TreeInstances > WarnTreeCount) r.Add(ReportStatus.WARNING, "Performance", $"{res.TreeInstances:N0} trees without LOD/billboards can be heavy in BeamNG.", "Remove distant trees or use fewer/lower-poly tree prefabs.");
             if (lowTrees > 0) r.Add(ReportStatus.PASS, "Vegetation", $"{lowTrees} tree type(s) lower than {s.minCollidableTreeHeight:0.#} m (bushes) get no collision.");
