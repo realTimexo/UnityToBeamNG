@@ -26,7 +26,7 @@ namespace UnityToBeamNG
     [Serializable]
     public class ExportManifest
     {
-        public string tool = "Unity to BeamNG 0.4.0";
+        public string tool = "Unity to BeamNG 0.4.1";
         public string unityVersion;
         public string levelName;
         public string mapName;
@@ -69,7 +69,7 @@ namespace UnityToBeamNG
 
                 var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 var finalDir = Path.Combine(s.exportDirectory, s.levelName + "_" + stamp);
-                tmp = Path.Combine(s.exportDirectory, ".tmp_" + Guid.NewGuid().ToString("N"));
+                tmp = Path.Combine(s.exportDirectory, ".tmp_" + Guid.NewGuid().ToString("N").Substring(0, 8));
                 ctx.Root = tmp;
                 ctx.LevelDir = Path.Combine(tmp, "levels", s.levelName);
                 ctx.ExtrasDir = Path.Combine(tmp, "extras");
