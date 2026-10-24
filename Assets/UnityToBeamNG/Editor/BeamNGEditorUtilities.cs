@@ -17,6 +17,16 @@ namespace UnityToBeamNG
             return sb.ToString();
         }
 
+        /// <summary>SafeId, but at most max characters (longer names: start + 8-char hash). Keeps Windows paths below MAX_PATH.</summary>
+        public static string ShortId(string s, int max = 40)
+        {
+            var id = SafeId(s);
+            if (id.Length <= max) return id;
+            uint h = 2166136261u;
+            foreach (var ch in id) { h ^= ch; h *= 16777619u; }
+            return id.Substring(0, max - 9) + "_" + h.ToString("x8");
+        }
+
         /// <summary>DAE node name: must not end in a digit (Torque reads a trailing number as detail level size -> "Shape with invalid detail levels").</summary>
         public static string NodeName(string s)
         {
