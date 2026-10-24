@@ -12,6 +12,12 @@ namespace UnityToBeamNG
         readonly HashSet<string> used = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
         public readonly List<Material> Materials = new List<Material>();
         public bool UsesMissing;
+        /// <summary>Names of BeamNG/Torque classes: a material called like this is not found / not mapped (seen in beamng.log: Camera, spotlight, Material).</summary>
+        static readonly HashSet<string> Reserved = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            "camera", "spotlight", "material", "light", "pointlight", "sun", "player", "terrain", "sky", "water", "sound", "shape",
+            "forest", "decal", "particle", "marker", "object", "group", "simgroup", "tsstatic", "item", "trigger", "vehicle", "default"
+        };
         /// <summary>Materials of leaves/grass: exported double-sided, alpha as cutout (set by the vegetation exporter).</summary>
         public readonly HashSet<Material> Foliage = new HashSet<Material>();
 
@@ -21,7 +27,7 @@ namespace UnityToBeamNG
             string n;
             if (names.TryGetValue(m, out n)) return n;
             var b = BeamNGEditorUtilities.SafeId(m.name);
-            if (b == Missing) b = "m_" + b;
+            if (b == Missing || Reserved.Contains(b)) b = "m_" + b;
             n = b; int i = 2;
             while (used.Contains(n)) n = b + "_" + (i++);
             used.Add(n); names[m] = n; Materials.Add(m);
@@ -39,6 +45,7 @@ namespace UnityToBeamNG
 
         string UniqueFile(string baseName, string relDir, string suffix)
         {
+            baseName = BeamNGEditorUtilities.ShortId(baseName, 40);
             var n = baseName; int i = 2;
             while (files.Contains(relDir + "/" + n + suffix)) n = baseName + "_" + (i++);
             files.Add(relDir + "/" + n + suffix);
