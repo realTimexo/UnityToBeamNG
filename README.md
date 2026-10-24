@@ -1,10 +1,22 @@
+<p align="center"><img src="https://raw.githubusercontent.com/realTimexo/UnityToBeamNG/fe2ce44100743d5fb1e7462e7bd55e673d0f5d14/logo.png" alt="Unity to BeamNG logo" width="160"></p>
+
 # Unity to BeamNG
 
 Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.drive mod ZIP.
 
-> **Status: alpha (v0.4.0).** Meshes, materials, spawn point, collision and terrain height have been confirmed working in BeamNG.drive 0.40. Terrain textures, the road network (AI), traffic lights and (new in 0.4.0) **vegetation and the minimap** are **not yet verified in game**. See [Known limitations](#known-limitations).
+> **Status: alpha (v0.4.1).** Meshes, materials, spawn point, collision and terrain height have been confirmed working in BeamNG.drive 0.40. Terrain textures, the road network (AI), traffic lights and (new in 0.4.0) **vegetation and the minimap** are **not yet verified in game**. See [Known limitations](#known-limitations).
 
 > **This project is vibe coded.** It was written together with an AI assistant and tested by hand. Expect rough edges, and please [report bugs](https://github.com/realTimexo/UnityToBeamNG/issues/new/choose) with the files listed below - that is how it gets better.
+
+## Preview
+
+Left: the scene in Unity. Right: the exported map in BeamNG.drive.
+
+![Unity scene (left) and the exported BeamNG map (right)](https://raw.githubusercontent.com/realTimexo/UnityToBeamNG/fe2ce44100743d5fb1e7462e7bd55e673d0f5d14/preview.jpg)
+
+## How to use
+
+![How to use Unity to BeamNG](https://raw.githubusercontent.com/realTimexo/UnityToBeamNG/fe2ce44100743d5fb1e7462e7bd55e673d0f5d14/HowToUse.gif)
 
 ## Features
 
@@ -95,6 +107,13 @@ Open **Tools > Unity to BeamNG > Vegetation**.
 - **Details:** set the density and the instance budget. Millions of grass blades would make BeamNG slow, so the tool lowers the density automatically when the budget is exceeded (see the report).
 - Forest items have only one uniform scale, so tree width/height scale is averaged. No wind and no far LODs yet.
 - **Minimap:** created automatically (terrain colours, roads, buildings, trees) and added to `info.json`. If it is shifted or flipped in game, send a screenshot.
+
+## New in 0.4.1
+
+- **Terrain textures:** the real Unity terrain textures are exported as PBR (v1.5) terrain materials with a `TerrainMaterialTextureSet` (Modules tab, on by default). The export is aborted if the set is missing or a texture does not match its slot size. If BeamNG crashes on load, switch it off.
+- **Minimap:** now also set as `minimapImage` on the TerrainBlock (BeamNG docs/forum), resolution "Auto".
+- **Trees:** LODs (`_a100`), automatic billboard (`bb_autobillboard25`) and far culling; wind via vertex colours + `ForestWindEmitter`. Grass is culled at a distance. Tree collision only for trees taller than 2.5 m; the report lists every tree type.
+- **Fixes:** too-long texture file names (Windows path limit), materials named like BeamNG classes (`Camera`, `spotlight`, `Material`).
 
 ## Reporting bugs
 
