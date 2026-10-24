@@ -32,19 +32,22 @@ namespace UnityToBeamNG
         public bool exportMeshes = true;
         public bool collideAllByDefault = true;      // meshes without a collider still collide
         public bool exportMinimap = true;            // top-down minimap image + info.json "minimap" entry
-        public int minimapResolution = 2048;         // 512..4096 (pixels, square)
+        public int minimapResolution = 0;            // 0 = auto (terrain resolution, max 2048); else 512..4096 (pixels, square)
 
         // --- Vegetation (v0.4.0) ---
         public bool exportVegetation = true;         // Unity terrain trees (Paint Trees) + details (Paint Details) -> BeamNG forest items
         public bool treeCollision = true;            // trees get a trunk collision shape (Colmesh-1) + collidable = true
-        public float minCollidableTreeHeight = 1.5f; // trees lower than this (bushes) get no collision
+        public float minCollidableTreeHeight = 2.5f; // trees lower than this (bushes) get no collision
         public bool exportDetails = true;            // grass / detail meshes from Paint Details
         public float detailDensity = 0.5f;           // 0.05..1: share of Unity's detail instances that is exported
         public int maxDetailInstances = 200000;      // hard budget; density is reduced automatically if exceeded
+        public bool forestLods = true;               // forest shapes: LOD naming (_a<px>), automatic billboard, null detail (far culling)
+        public bool vegetationWind = true;           // vertex colours (wind weights) + windScale > 0 + ForestWindEmitter
+        public float windStrength = 0.6f;            // windScale of trees / grass
         public bool detailMeshCollision = false;     // collision (bounding box) for detail MESHES (rocks etc.); grass never collides
 
         // --- Spawn ---
-        public bool terrainTextureSet = false;       // EXPERIMENTAL: PBR v1.5 terrain materials with a TerrainMaterialTextureSet (can crash BeamNG if the set is not found)
+        public bool terrainPbr = true;               // PBR v1.5 terrain materials + TerrainMaterialTextureSet (real terrain textures). Off = classic v1 (BeamNG may show only an average colour)
         public bool driveOnLeft = false;             // left-hand traffic (info.json roadRules.rightHandDrive)
         public bool snapSpawnToGround = true;
         public float spawnClearance = 0.5f;          // meters above the ground that was found
