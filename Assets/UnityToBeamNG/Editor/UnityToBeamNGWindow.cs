@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -6,7 +7,7 @@ namespace UnityToBeamNG
 {
     public class UnityToBeamNGWindow : EditorWindow
     {
-        public const string ToolVersion = "0.4.1";
+        public const string ToolVersion = "0.4.2";
         public const string RepoUrl = "https://github.com/realTimexo/UnityToBeamNG";
         public const string ReleasesUrl = "https://github.com/realTimexo/UnityToBeamNG/releases";
         public const string IssuesUrl = "https://github.com/realTimexo/UnityToBeamNG/issues";
@@ -16,8 +17,8 @@ namespace UnityToBeamNG
         BeamNGExportSettings s;
         Vector2 scroll;
         int tab;
-        static readonly string[] Tabs = { "Dashboard", "Map", "Spawn", "Roads", "Traffic", "Vegetation", "Modules", "Report", "About" };
-        const int ReportTab = 7;
+        static readonly string[] Tabs = { "Dashboard", "Map", "Spawn", "Roads", "Traffic", "Vegetation", "Water", "Modules", "Report", "About" };
+        const int ReportTab = 8;
 
         [MenuItem("Tools/Unity to BeamNG")]
         static void Open() { GetWindow<UnityToBeamNGWindow>("Unity to BeamNG"); }
@@ -39,9 +40,10 @@ namespace UnityToBeamNG
                 case 3: RoadsTab(); break;
                 case 4: TrafficTab(); break;
                 case 5: VegetationTab(); break;
-                case 6: Modules(); break;
-                case 7: ReportView(); break;
-                case 8: About(); break;
+                case 6: WaterTab(); break;
+                case 7: Modules(); break;
+                case 8: ReportView(); break;
+                case 9: About(); break;
             }
             if (EditorGUI.EndChangeCheck()) s.Save();
             EditorGUILayout.EndScrollView();
@@ -66,7 +68,7 @@ namespace UnityToBeamNG
                 EditorGUILayout.LabelField("Last ZIP", BeamNGExportPipeline.LastZipPath);
             EditorGUILayout.HelpBox(
                 "The export creates an installable ZIP (levels/<name>/...). Files created and structure validated does NOT mean tested in game. " +
-                "Not included: water, normal maps, tree LODs/wind. See the report for details.",
+                "Not included: normal maps. See the report for details.",
                 MessageType.Warning);
         }
 
@@ -77,12 +79,23 @@ namespace UnityToBeamNG
             if (!BeamNGEditorUtilities.IsValidLevelName(s.levelName))
                 EditorGUILayout.HelpBox("Only a-z, 0-9 and _ are allowed.", MessageType.Error);
             s.author = EditorGUILayout.TextField("Author", s.author);
-            s.description = EditorGUILayout.TextField("Description", s.description);
+            s.description = EditorGUILayout.TextField("Description (empty = 'Made with UnityToBeamNG!')", s.description);
             s.version = EditorGUILayout.TextField("Version", s.version);
             s.terrainResolution = EditorGUILayout.IntField("Terrain resolution (2^n, 64-8192)", s.terrainResolution);
             s.maxTextureSize = EditorGUILayout.IntField("Max texture size", s.maxTextureSize);
             s.timeOfDay = EditorGUILayout.Slider("Start time of day (0-1)", s.timeOfDay, 0f, 1f);
             s.visibleDistance = EditorGUILayout.FloatField("View distance (m)", s.visibleDistance);
+
+            EditorGUILayout.BeginHorizontal();
+            s.previewImagePath = EditorGUILayout.TextField("Own preview image (optional)", s.previewImagePath);
+            if (GUILayout.Button("...", GUILayout.Width(30)))
+            {
+                var pi = EditorUtility.OpenFilePanel("Preview image", s.previewImagePath, "png,jpg,jpeg");
+                if (!string.IsNullOrEmpty(pi)) s.previewImagePath = pi;
+            }
+            if (GUILayout.Button("x", GUILayout.Width(22))) s.previewImagePath = "";
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.HelpBox("Empty = a screenshot taken at the spawn point is used. An own image is cropped to 16:9 (1280x720).", MessageType.None);
 
             EditorGUILayout.BeginHorizontal();
             s.exportDirectory = EditorGUILayout.TextField("Export folder", s.exportDirectory);
@@ -178,9 +191,36 @@ namespace UnityToBeamNG
                 "Green/yellow/all-red times are on the intersection object. The roads must be part of the road network (Roads tab).", MessageType.Info);
             if (GUILayout.Button("Create traffic intersection (with simple poles)", GUILayout.Height(28))) BeamNGRoadTools.CreateIntersection(true);
             if (GUILayout.Button("Create traffic intersection (logic only, use your own models)", GUILayout.Height(24))) BeamNGRoadTools.CreateIntersection(false);
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Road Architect intersections", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Intersections built with Road Architect (traffic lights or all-way stop) are converted automatically at export: its green/yellow/red timing is taken over and the AI obeys the signals in BeamNG. Road Architect\'s lamp texture is replaced by own lamp discs at its redlight/yellowlight/greenlight positions that switch colour in BeamNG (the housing and poles stay as they are). In Unity play mode Road Architect keeps working as before; the added lamp discs just stay visible. Press the button to convert now and check/adjust the result.", MessageType.Info);
+            if (GUILayout.Button("Convert Road Architect traffic lights / stop signs now", GUILayout.Height(26)))
+            {
+                int rl, rs; var nt = new List<string>();
+                int ri = BeamNGRoadArchitectSignals.Convert(out rl, out rs, nt);
+                if (ri == 0 && nt.Count == 0) nt.Add(BeamNGRoadArchitectSignals.Diagnose());
+                EditorUtility.DisplayDialog("Road Architect", ri + " intersection(s): " + rl + " traffic light(s), " + rs + " stop sign(s)." + (nt.Count > 0 ? "\n\n" + string.Join("\n", nt) : ""), "OK");
+            }
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Stop signs (the AI stops)", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Place the sign next to the stop line; its blue arrow must point in the driving direction of the traffic that has to stop. The simple model (pole + disc) can be deleted and replaced by your own 3D model - the logic sits on the root object. The road must be part of the road network (Roads tab).", MessageType.Info);
+            if (GUILayout.Button("Create stop sign (simple model)", GUILayout.Height(26))) BeamNGRoadTools.CreateStopSign(true);
+            if (GUILayout.Button("Create stop sign (logic only, use your own model)", GUILayout.Height(24))) BeamNGRoadTools.CreateStopSign(false);
+            EditorGUILayout.LabelField("In scene: " + FindObjectsByType<BeamNGTrafficSign>(FindObjectsSortMode.None).Length + " sign(s)");
+            EditorGUILayout.Space();
             EditorGUILayout.HelpBox("Logic (who is green when, AI stops at red) goes to signals.json. The lamps (red/yellow/green objects assigned on each light) are switched in game by a small Lua extension that ships inside the ZIP. For your own models assign the three lamp objects (emissive materials) on the Traffic Light component.", MessageType.Warning);
             EditorGUILayout.LabelField("In scene: " + FindObjectsByType<BeamNGTrafficIntersection>(FindObjectsSortMode.None).Length + " intersection(s), "
                 + FindObjectsByType<BeamNGTrafficLight>(FindObjectsSortMode.None).Length + " light(s)");
+        }
+
+        void WaterTab()
+        {
+            EditorGUILayout.HelpBox("Creates a water volume: the object's X/Z scale is the footprint, its height (Y) is the water surface and 'depth' reaches downwards. The blue quad is only a preview and is not exported. Select the water object to change type (lake/ocean/river/pool/stream) and depth.", MessageType.Info);
+            if (GUILayout.Button("Create water", GUILayout.Height(28))) BeamNGRoadTools.CreateWater();
+            EditorGUILayout.LabelField("In scene: " + FindObjectsByType<BeamNGWater>(FindObjectsSortMode.None).Length + " water volume(s)");
+            EditorGUILayout.Space();
+            s.autoDetectWater = EditorGUILayout.ToggleLeft("Also export water that already exists in my scene", s.autoDetectWater);
+            EditorGUILayout.HelpBox("Flat, large meshes (at least 4x4 m, thinner than 1 m) whose material or shader name contains 'water', and HDRP WaterSurface objects become BeamNG water automatically (surface height = top of the object, depth 10 m, type guessed from the name: ocean/river/pool/stream, otherwise lake). Such a mesh is then not exported as a normal mesh. Turn this off if a normal object is mistaken for water.", MessageType.None);
         }
 
         void VegetationTab()
@@ -224,13 +264,13 @@ namespace UnityToBeamNG
                 using (new EditorGUI.DisabledScope(!s.vegetationWind))
                     s.windStrength = EditorGUILayout.Slider("Wind strength (windScale)", s.windStrength, 0.1f, 2f);
             }
-            EditorGUILayout.HelpBox("Forest items support one uniform scale (tree width/height scale is averaged). Collision uses a 'Colmesh-1' node, LODs/billboards and wind follow a BeamNG mapping guide (untested in game). The tree list with collision info is in the Report tab.", MessageType.Warning);
+            EditorGUILayout.HelpBox("Forest items support one uniform scale (tree width/height scale is averaged). Wind sway is untested in game. The tree list with collision info is in the Report tab.", MessageType.Warning);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Minimap", EditorStyles.boldLabel);
             s.exportMinimap = EditorGUILayout.ToggleLeft("Create minimap (terrain colours, roads, buildings, trees)", s.exportMinimap);
             using (new EditorGUI.DisabledScope(!s.exportMinimap))
-                s.minimapResolution = EditorGUILayout.IntPopup("Minimap resolution", s.minimapResolution, new[] { "Auto (terrain size, max 2048)", "512", "1024", "2048", "4096" }, new[] { 0, 512, 1024, 2048, 4096 });
+                s.minimapPixels = EditorGUILayout.IntPopup("Minimap resolution", s.minimapPixels, new[] { "Auto (terrain size, max 2048)", "512", "1024", "2048", "4096" }, new[] { 0, 512, 1024, 2048, 4096 });
         }
 
         static int EnableReadWriteOnVegetation()
@@ -272,8 +312,7 @@ namespace UnityToBeamNG
             EditorGUILayout.LabelField("Not implemented yet", EditorStyles.boldLabel);
             using (new EditorGUI.DisabledScope(true))
             {
-                string[] todo = { "Traffic sign logic (stop/yield), pedestrian crossings", "Tree LODs / wind sway",
-                    "Water", "Normal maps", "Bridges/tunnels as dedicated objects" };
+                string[] todo = { "Yield signs, pedestrian crossings", "Normal maps", "Bridges/tunnels as dedicated objects" };
                 foreach (var t in todo) EditorGUILayout.ToggleLeft(t, false);
             }
         }
