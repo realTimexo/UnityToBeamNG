@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.2 (alpha)
+- Map tab: own preview image; default description "Made with UnityToBeamNG!".
+- New: BeamNGTrafficSign (signStop/basicStop), BeamNGWater (WaterBlock), Water tab, minimap draws water.
+- Road Architect traffic lights / all-way stops are converted to BeamNG signals (Traffic tab button + automatic at export).
+- Road Architect detection also supports the FritzsHero fork (RoadIntersection, renamed fields) and reports what it found.
+- Converted Road Architect lights get own switching lamp objects (replace its texture atlas lens).
+- Water that already exists in the scene (flat meshes with a water material, HDRP WaterSurface) is exported as BeamNG water; such meshes are no longer exported as normal meshes.
+- Lamp switching Lua: finds signals via getSignalByName or getSignals.
+- Simpler GitHub issue templates.
+- Auto-detect Road Architect roads at export; minimap warns if no roads exist.
+- Removed warnings for features confirmed in game.
+
 ## 0.4.1 (alpha)
 - Fix (beamng.log / Unity warning): texture file names are shortened (max 40 chars + hash) - Windows "Could not find a part of the path" for very long sign texture names; temp folder name shortened.
 - Fix (beamng.log): materials named `Camera`, `spotlight`, `Material` (and other BeamNG class names) were not mapped; they get the prefix `m_`.
