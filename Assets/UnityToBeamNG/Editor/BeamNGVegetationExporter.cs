@@ -581,8 +581,8 @@ namespace UnityToBeamNG
             {
                 r.Exported += res.TreeInstances + res.DetailInstances;
                 r.Add(ReportStatus.PASS, "Vegetation", $"{res.TreeInstances:N0} tree(s) and {res.DetailInstances:N0} detail instance(s) of {res.ItemTypes} item type(s) written to forest/*.forest4.json + art/forest/managedItemData.json; {res.CollidableTrees:N0} tree(s) with trunk collision.");
-                r.Add(ReportStatus.WARNING, "Vegetation", "Forest files follow the BeamNG docs (managedItemData.json, .forest4.json, Forest object). The collision node name 'Colmesh-1' inside the DAE is NOT documented and untested in game.", "Drive into a tree after loading. If you pass through, send beamng.log and tell me.");
-                r.Add(ReportStatus.MANUAL, "Vegetation", "Forest items have ONE uniform scale: tree width/height scale is averaged. Wind (vertex colours + windScale) and LODs/billboards follow a BeamNG mapping guide; BeamNG's own docs do not specify the wind material flag, so sway is untested.", "");
+                // (collision confirmed in game; no warning needed)
+                r.Add(ReportStatus.MANUAL, "Vegetation", "Forest items have ONE uniform scale: tree width/height scale is averaged. Wind (vertex colours + windScale) and LODs/billboards follow a BeamNG mapping guide; BeamNG's own docs do not specify the wind material flag, so wind sway is untested.", "");
             }
             if (res.TreeInstances > WarnTreeCount) r.Add(ReportStatus.WARNING, "Performance", $"{res.TreeInstances:N0} trees without LOD/billboards can be heavy in BeamNG.", "Remove distant trees or use fewer/lower-poly tree prefabs.");
             if (lowTrees > 0) r.Add(ReportStatus.PASS, "Vegetation", $"{lowTrees} tree type(s) lower than {s.minCollidableTreeHeight:0.#} m (bushes) get no collision.");
