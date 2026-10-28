@@ -28,7 +28,7 @@ namespace UnityToBeamNG
         {
             var s = c.Settings; var r = c.Report;
             if (!s.exportMinimap) return null;
-            int want = s.minimapResolution > 0 ? s.minimapResolution : (terrain != null ? Mathf.Min(terrain.Size, 2048) : 2048);
+            int want = s.minimapPixels > 0 ? s.minimapPixels : (terrain != null ? Mathf.Min(terrain.Size, 2048) : 2048);
             int N = Mathf.Clamp(Mathf.ClosestPowerOfTwo(Mathf.Max(256, want)), 256, 4096);
 
             // ----- extent -----
@@ -59,6 +59,23 @@ namespace UnityToBeamNG
 
             // ----- terrain colours + hillshade -----
             if (terrains.Count > 0 && !PaintTerrain(c, terrains, res, buf, N)) return null;
+
+            // ----- water -----
+            foreach (var wa in c.WaterAreas)
+            {
+                float rad = wa.Yaw * Mathf.Deg2Rad, cs = Mathf.Cos(rad), sn = Mathf.Sin(rad);
+                float ext = (Mathf.Abs(wa.Size.x * cs) + Mathf.Abs(wa.Size.y * sn) + Mathf.Abs(wa.Size.x * sn) + Mathf.Abs(wa.Size.y * cs)) * 0.5f;
+                int px0 = Mathf.Clamp(Mathf.FloorToInt((wa.Center.x - ext - res.X0) / res.Side * N), 0, N - 1), px1 = Mathf.Clamp(Mathf.CeilToInt((wa.Center.x + ext - res.X0) / res.Side * N), 0, N - 1);
+                int py0 = Mathf.Clamp(Mathf.FloorToInt((wa.Center.y - ext - res.Z0) / res.Side * N), 0, N - 1), py1 = Mathf.Clamp(Mathf.CeilToInt((wa.Center.y + ext - res.Z0) / res.Side * N), 0, N - 1);
+                for (int y = py0; y <= py1; y++)
+                    for (int x = px0; x <= px1; x++)
+                    {
+                        float dx = res.X0 + (x + 0.5f) / N * res.Side - wa.Center.x, dz = res.Z0 + (y + 0.5f) / N * res.Side - wa.Center.y;
+                        // rotate into the local frame (Unity yaw rotates x towards -z)
+                        float lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+                        if (Mathf.Abs(lx) <= wa.Size.x * 0.5f && Mathf.Abs(lz) <= wa.Size.y * 0.5f) buf[y * N + x] = new Color32(52, 110, 170, 255);
+                    }
+            }
 
             // ----- buildings (footprints of tall objects) -----
             int buildings = 0;
@@ -102,6 +119,7 @@ namespace UnityToBeamNG
             c.Require(MinimapResult.File);
 
             r.Add(ReportStatus.PASS, "Minimap", $"minimap/terrain.png ({N}x{N}) written: terrain colours, {c.RoadPaths.Count} road(s), {buildings} building footprint(s), {(veg != null ? veg.TreeXZ.Count : 0):N0} tree(s). info.json: size [{res.Side:F0},{res.Side:F0}], offset [{res.OffsetBeam.x:F0},{res.OffsetBeam.y:F0}].");
+            if (c.RoadPaths.Count == 0) r.Add(ReportStatus.WARNING, "Minimap", "No roads on the minimap: no BeamNGRoad / BeamNGRoadPiece / Road Architect road was found. Roads only appear if they are marked in the Roads tab.", "Roads tab -> mark your roads.");
             r.Add(ReportStatus.WARNING, "Minimap", "Minimap follows the info.json docs (minimap: file/size/offset). The offset is assumed to be the TOP-LEFT corner in world units; not yet verified in game.", "Open the map screen in BeamNG: if the image is shifted/flipped, send a screenshot.");
             return res;
         }
