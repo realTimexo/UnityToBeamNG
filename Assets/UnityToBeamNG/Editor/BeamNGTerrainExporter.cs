@@ -304,8 +304,7 @@ namespace UnityToBeamNG
             if (sq > 2f) r.Add(ReportStatus.WARNING, "Terrain", $"Coarse resolution ({sq:F2} m/sample): detail is lost.", "Increase the terrain resolution (up to 8192).");
             if (Mathf.Abs((maxX - minX) - (maxZ - minZ)) > 0.01f) r.Add(ReportStatus.WARNING, "Terrain", "Terrain is not square: empty areas are marked as holes (no collision).");
             if (holesTotal > 0) r.Add(ReportStatus.PASS, "Terrain", $"{holesTotal:N0} sample(s) marked as hole (255) (hole mask / empty areas).");
-            r.Add(ReportStatus.WARNING, "Terrain", ".ter file follows the docs (version 9). Not documented and therefore UNVERIFIED: material name encoding and row order.", "Load the map: if the terrain is missing or flipped, use extras/theTerrain_heightmap16.png with the World Editor terrain importer.");
-            r.Add(ReportStatus.WARNING, "Terrain", c.Settings.terrainPbr ? "Terrain textures: PBR (v1.5) terrain materials with a TerrainMaterialTextureSet (" + names.Count + " layer(s), base 1024 / macro 512 / detail 512 px). Not yet confirmed in game." : "Terrain textures: classic (v1) terrain material per Unity layer. BeamNG may show only the average colour of the texture in this mode - enable 'PBR terrain textures' in the Modules tab.", "If still black, send beamng.log.");
+            r.Add(ReportStatus.WARNING, "Terrain", c.Settings.terrainPbr ? "Terrain textures: PBR (v1.5) terrain materials with a TerrainMaterialTextureSet (" + names.Count + " layer(s), base 1024 / macro 512 / detail 512 px)." : "Terrain textures: classic (v1) terrain material per Unity layer. BeamNG may show only the average colour of the texture in this mode - enable 'PBR terrain textures' in the Modules tab.", "");
             return res;
         }
     }
