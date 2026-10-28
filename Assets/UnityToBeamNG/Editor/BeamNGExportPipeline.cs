@@ -26,7 +26,7 @@ namespace UnityToBeamNG
     [Serializable]
     public class ExportManifest
     {
-        public string tool = "Unity to BeamNG 0.4.1";
+        public string tool = "Unity to BeamNG 0.4.2";
         public string unityVersion;
         public string levelName;
         public string mapName;
@@ -80,7 +80,25 @@ namespace UnityToBeamNG
                 var tex = new BeamNGTextureExporter(ctx);
                 var manifest = new ExportManifest { unityVersion = Application.unityVersion, levelName = s.levelName, mapName = s.mapName, author = s.author };
 
+                if (BeamNGRoadArchitectSignals.NeedsConversion())
+                {
+                    int rl, rs; var notes = new List<string>();
+                    int ri = BeamNGRoadArchitectSignals.Convert(out rl, out rs, notes);
+                    if (ri > 0) r.Add(ReportStatus.PASS, "Traffic", $"Road Architect: {ri} intersection(s) converted automatically ({rl} traffic light(s), {rs} stop sign(s)).");
+                    foreach (var nt in notes) r.Add(ReportStatus.WARNING, "Traffic", nt, "");
+                }
+                else
+                {
+                    string diag = BeamNGRoadArchitectSignals.Diagnose();
+                    if (diag != "" && UnityEngine.Object.FindObjectsByType<BeamNGTrafficIntersection>(FindObjectsSortMode.None).Length == 0 && UnityEngine.Object.FindObjectsByType<BeamNGTrafficSign>(FindObjectsSortMode.None).Length == 0)
+                        r.Add(ReportStatus.WARNING, "Traffic", diag, "");
+                }
                 BeamNGSignalExporter.Export(ctx);
+                if (UnityEngine.Object.FindObjectsByType<BeamNGRoad>(FindObjectsSortMode.None).Length == 0 && UnityEngine.Object.FindObjectsByType<BeamNGRoadPiece>(FindObjectsSortMode.None).Length == 0)
+                {
+                    int found = BeamNGRoadTools.FindRoadArchitectRoads();
+                    if (found > 0) r.Add(ReportStatus.PASS, "Roads", $"No road was marked: {found} Road Architect road(s) were found and marked automatically.");
+                }
                 ctx.RoadPaths = BeamNGRoadExporter.Collect(r);
                 ctx.RoadLines = BeamNGRoadExporter.BuildLines(ctx.RoadPaths);
 
@@ -100,6 +118,8 @@ namespace UnityToBeamNG
                 }
                 r.Skipped = scan.SkippedLod + scan.SkippedExcluded + scan.InvalidMeshes;
 
+                var waterLines = BeamNGWaterExporter.Export(ctx);
+
                 if (ctx.Cancelled("Vegetation (trees, details)", 0.80f)) return Abort(r, tmp);
                 var veg = BeamNGVegetationExporter.Export(ctx, scan, reg);
                 if (veg == null || ctx.Aborted) return Abort(r, tmp);
@@ -113,7 +133,7 @@ namespace UnityToBeamNG
 
                 if (ctx.Cancelled("Writing level files", 0.88f)) return Abort(r, tmp);
                 var spawns = BeamNGLevelBuilder.ResolveSpawns(ctx, scan);
-                BeamNGLevelBuilder.Build(ctx, scan, terrain, staticLines, spawns, veg, mini);
+                BeamNGLevelBuilder.Build(ctx, scan, terrain, staticLines, spawns, veg, mini, waterLines);
 
                 File.WriteAllText(Path.Combine(ctx.ExtrasDir, "export_manifest.json"), JsonUtility.ToJson(manifest, true), new UTF8Encoding(false));
 
@@ -127,7 +147,6 @@ namespace UnityToBeamNG
                 BeamNGPackageBuilder.CreateZip(tmp, zipTmp);
                 if (!BeamNGPackageBuilder.VerifyZip(zipTmp, ctx)) { CleanDir(tmp); return Finish(s, r, "Error (ZIP)"); }
                 r.Add(ReportStatus.PASS, "ZIP", $"{zipName} created and contents checked (root: levels/{s.levelName}/).");
-                r.Add(ReportStatus.MANUAL, "Test", "Steps 3-5 are still open: load the map, drive it, check the spawn. Nothing has been verified in BeamNG by this tool.", "Put the ZIP into the BeamNG mods folder, start the game, check the log.");
 
                 r.Save(Path.Combine(tmp, "export_report.txt"));
                 Directory.Move(tmp, finalDir);
