@@ -42,10 +42,26 @@ local function findState(x, depth)
   return nil
 end
 
+local function findSignal(sigName)
+  if core_trafficSignals.getSignalByName then
+    local s = core_trafficSignals.getSignalByName(sigName)
+    if s then return s end
+  end
+  if core_trafficSignals.getSignals then
+    local list = core_trafficSignals.getSignals()
+    if type(list) == 'table' then
+      for _, s in pairs(list) do
+        if type(s) == 'table' and s.name == sigName then return s end
+      end
+    end
+  end
+  return nil
+end
+
 local function engineState(sigName)
-  if not core_trafficSignals or not core_trafficSignals.getSignalByName then return nil end
+  if not core_trafficSignals then return nil end
   local ok, res = pcall(function()
-    local sig = core_trafficSignals.getSignalByName(sigName)
+    local sig = findSignal(sigName)
     if not sig then return nil end
     local st = nil
     if type(sig.getState) == 'function' then st = sig:getState() end
