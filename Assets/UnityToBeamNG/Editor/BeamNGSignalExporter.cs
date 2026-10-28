@@ -99,6 +99,31 @@ namespace UnityToBeamNG
                 if (l.gameObject.activeInHierarchy && !covered.Contains(l))
                     r.Add(ReportStatus.WARNING, "Traffic", $"Traffic light '{l.name}' is not below a BeamNGTrafficIntersection and is ignored.", "Move it below an intersection object.");
 
+            // ----- stop signs (controller type "signStop", state "basicStop", sequenceId 0 - per the signals.json docs) -----
+            int stopCtrl = 0, signCount = 0;
+            var signs = new List<BeamNGTrafficSign>(Object.FindObjectsByType<BeamNGTrafficSign>(FindObjectsSortMode.None));
+            signs.Sort((a, b) => string.CompareOrdinal(BeamNGEditorUtilities.HierarchyPath(a.transform), BeamNGEditorUtilities.HierarchyPath(b.transform)));
+            foreach (var sg in signs)
+            {
+                if (!sg.gameObject.activeInHierarchy || !sg.exportEnabled) continue;
+                if (stopCtrl == 0)
+                {
+                    stopCtrl = id++;
+                    controllers.Add(new JsonObj().Num("id", stopCtrl).Str("name", "stop").Str("type", "signStop").Bool("isSimple", true)
+                        .Raw("states", "[" + new JsonObj().Str("state", "basicStop") + "]").ToString());
+                }
+                string sname = "stop_" + BeamNGEditorUtilities.SafeId(sg.name); int sn2 = 2; string sbase = sname;
+                while (!usedNames.Add(sname)) sname = sbase + "_" + (sn2++);
+                var spos = BeamNGCoordinateConverter.Position(sg.transform.position);
+                var sf = sg.transform.forward; sf.y = 0f; if (sf.sqrMagnitude < 1e-6f) sf = Vector3.forward; sf.Normalize();
+                var sdir = BeamNGCoordinateConverter.Direction(sf);
+                instances.Add(new JsonObj().Num("id", id++).Str("name", sname).Num("controllerId", stopCtrl).Num("sequenceId", 0)
+                    .Arr("pos", spos.x, spos.y, spos.z).Arr("dir", sdir.x, sdir.y, sdir.z).Str("group", "stop_signs").Bool("startDisabled", false).ToString());
+                signCount++;
+            }
+            if (signCount > 0)
+                r.Add(ReportStatus.PASS, "Traffic", $"{signCount} stop sign(s) exported as signals (the AI stops at them if they are near a road of the road network).");
+
             if (instances.Count == 0) return;
             var sb = new StringBuilder();
             sb.Append("{\n\"instances\":[\n").Append(string.Join(",\n", instances)).Append("\n],\n");
@@ -113,10 +138,10 @@ namespace UnityToBeamNG
                 File.WriteAllText(c.AbsRoot(BeamNGLuaFiles.ModScriptPath), BeamNGLuaFiles.ModScript, new UTF8Encoding(false));
                 File.WriteAllText(c.AbsRoot(BeamNGLuaFiles.ExtensionPath), BeamNGLuaFiles.Extension, new UTF8Encoding(false));
                 r.Add(ReportStatus.PASS, "Traffic", $"{lampSignals.Count} signal(s) with lamp objects: signal_lamps.json + Lua extension (switches red/yellow/green lamps in game).");
-                r.Add(ReportStatus.WARNING, "Traffic", "Lamp switching uses a Lua extension that reads the signal state from core_trafficSignals (API names unverified; falls back to the exported timing).", "Check the BeamNG log for 'unityToBeamNG'.");
             }
             r.Add(ReportStatus.PASS, "Traffic", $"signals.json: {interCount} intersection(s), {instances.Count} signal(s), {controllers.Count} controller(s).");
-            r.Add(ReportStatus.WARNING, "Traffic", "Signal logic follows the BeamNG docs (controller type 'lightsBasic') but is untested in game. Lights only act on roads that are part of the AI road network; place each light near the stop line.", "Check the BeamNG log and the signals editor (World Editor).");
+            if (c.RoadPaths.Count == 0)
+                r.Add(ReportStatus.WARNING, "Traffic", "Signals only work on roads of the road network, and this map has no road marked (BeamNG log: 'Map node could not be set for signal instance').", "Mark your roads in the Roads tab.");
         }
     }
 }
