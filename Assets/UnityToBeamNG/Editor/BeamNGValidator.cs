@@ -52,7 +52,7 @@ namespace UnityToBeamNG
                 r.Add(ReportStatus.PASS, "Mesh", $"{scan.SkinnedBaked} SkinnedMeshRenderer(s) baked in their current pose and exported as static meshes.");
             foreach (var n in scan.NotExported)
                 r.Add(ReportStatus.WARNING, "Scene", "Not exported: " + n, "");
-            r.Add(ReportStatus.MANUAL, "Features", "Not included: water, normal maps, tree LODs/wind, stop/yield sign logic.", "See README.");
+            r.Add(ReportStatus.MANUAL, "Features", "Not included: normal maps, yield signs, pedestrian crossings.", "See README.");
         }
     }
 }
