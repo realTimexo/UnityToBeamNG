@@ -5,6 +5,8 @@ using UnityEngine;
 
 namespace UnityToBeamNG
 {
+    public class WaterArea { public Vector2 Center, Size; public float Yaw; }
+
     /// <summary>Shared state of one export run.</summary>
     public class BeamNGExportContext
     {
@@ -18,6 +20,7 @@ namespace UnityToBeamNG
         public readonly Dictionary<Renderer, string> LampNames = new Dictionary<Renderer, string>();
         public List<string> RoadLines = new List<string>();
         public List<RoadPath> RoadPaths = new List<RoadPath>();
+        public readonly List<WaterArea> WaterAreas = new List<WaterArea>();
         public readonly Dictionary<BeamNGTrafficLight, string> SignalNames = new Dictionary<BeamNGTrafficLight, string>();
         public readonly List<string> Required = new List<string>(); // relative to LevelDir
 
