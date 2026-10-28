@@ -15,13 +15,14 @@ namespace UnityToBeamNG
         public string author = "";
         public string description = "";
         public string version = "1.0";
+        public string previewImagePath = "";         // optional own preview image for the level list (otherwise a screenshot of the spawn is rendered)
         public string exportDirectory = "";
 
         // --- BeamNG ---
         public string beamNGInstallPath = "";        // optional, informational only
         public string beamNGModsFolder = "";         // optional target for "copy ZIP"
         public bool copyZipToModsFolder = false;
-        public string beamNGTargetVersion = "BeamNG.drive 0.40 (meshes/spawn tested; vegetation, minimap untested)";
+        public string beamNGTargetVersion = "BeamNG.drive 0.40";
 
         // --- Terrain ---
         public int terrainResolution = 1024;         // power of two, 64..8192
@@ -32,9 +33,10 @@ namespace UnityToBeamNG
         public bool exportMeshes = true;
         public bool collideAllByDefault = true;      // meshes without a collider still collide
         public bool exportMinimap = true;            // top-down minimap image + info.json "minimap" entry
-        public int minimapResolution = 0;            // 0 = auto (terrain resolution, max 2048); else 512..4096 (pixels, square)
+        public int minimapPixels = 0;                // 0 = auto (terrain resolution, max 2048); else 512..4096 (pixels, square)
 
         // --- Vegetation (v0.4.0) ---
+        public bool autoDetectWater = true;           // flat meshes with a water material / HDRP WaterSurface -> BeamNG water
         public bool exportVegetation = true;         // Unity terrain trees (Paint Trees) + details (Paint Details) -> BeamNG forest items
         public bool treeCollision = true;            // trees get a trunk collision shape (Colmesh-1) + collidable = true
         public float minCollidableTreeHeight = 2.5f; // trees lower than this (bushes) get no collision
