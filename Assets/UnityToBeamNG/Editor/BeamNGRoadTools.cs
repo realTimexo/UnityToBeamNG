@@ -143,6 +143,47 @@ namespace UnityToBeamNG
             Selection.activeGameObject = root;
         }
 
+        /// <summary>Simple stop sign (pole + red disc + white disc). Replace the child objects with your own model if you like; the logic sits on the root.</summary>
+        public static void CreateStopSign(bool withVisuals)
+        {
+            var root = new GameObject("BeamNG Stop Sign");
+            Undo.RegisterCreatedObjectUndo(root, "Create stop sign");
+            root.transform.position = Pivot();
+            root.AddComponent<BeamNGTrafficSign>();
+            if (withVisuals)
+            {
+                var pole = LampMaterial("BeamNG_Signal_Dark", new Color(0.08f, 0.08f, 0.08f), false);
+                var red = LampMaterial("BeamNG_Sign_Red", new Color(0.8f, 0.05f, 0.05f), false);
+                var white = LampMaterial("BeamNG_Sign_White", new Color(0.95f, 0.95f, 0.95f), false);
+                Part(PrimitiveType.Cylinder, "Pole", root.transform, new Vector3(0f, 1.2f, 0f), new Vector3(0.08f, 1.2f, 0.08f), pole);
+                var disc = Part(PrimitiveType.Cylinder, "Sign", root.transform, new Vector3(0f, 2.5f, -0.06f), new Vector3(0.75f, 0.02f, 0.75f), red);
+                disc.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                var ring = Part(PrimitiveType.Cylinder, "Sign Mark", root.transform, new Vector3(0f, 2.5f, -0.09f), new Vector3(0.45f, 0.01f, 0.45f), white);
+                ring.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            }
+            Selection.activeGameObject = root;
+        }
+
+        /// <summary>Water volume: root object (X/Z scale = footprint, Y position = surface) + a preview quad that is not exported.</summary>
+        public static void CreateWater()
+        {
+            var root = new GameObject("BeamNG Water");
+            Undo.RegisterCreatedObjectUndo(root, "Create water");
+            root.transform.position = Pivot();
+            root.transform.localScale = new Vector3(100f, 1f, 100f);
+            root.AddComponent<BeamNGWater>();
+            root.AddComponent<BeamNGCollisionSettings>().excludeFromExport = true; // the preview quad must not become a mesh in the map
+            var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            q.name = "Water Preview (not exported)";
+            Object.DestroyImmediate(q.GetComponent<Collider>());
+            q.transform.SetParent(root.transform, false);
+            q.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var m = LampMaterial("BeamNG_Water_Preview", new Color(0.2f, 0.45f, 0.8f, 0.55f), false);
+            if (m.HasProperty("_Mode")) { m.SetFloat("_Mode", 3); m.SetInt("_SrcBlend", 5); m.SetInt("_DstBlend", 10); m.SetInt("_ZWrite", 0); m.EnableKeyword("_ALPHABLEND_ON"); m.renderQueue = 3000; }
+            q.GetComponent<MeshRenderer>().sharedMaterial = m;
+            Selection.activeGameObject = root;
+        }
+
         static Material LampMaterial(string name, Color color, bool emissive)
         {
             const string dir = "Assets/UnityToBeamNG/Generated";
@@ -178,6 +219,16 @@ namespace UnityToBeamNG
             go.transform.localScale = scale;
             go.GetComponent<MeshRenderer>().sharedMaterial = mat;
             return go.transform;
+        }
+
+        /// <summary>One emissive lamp disc at a world position, flattened along the driving direction (it faces the oncoming traffic).</summary>
+        internal static Transform MakeLamp(Transform parent, string role, Vector3 worldPos, float diameter)
+        {
+            Color col = role == "Red" ? new Color(1f, 0.05f, 0.05f) : role == "Yellow" ? new Color(1f, 0.75f, 0f) : new Color(0.05f, 1f, 0.2f);
+            var m = LampMaterial("BeamNG_Signal_" + role, col, true);
+            var t = Part(PrimitiveType.Sphere, "Lamp " + role, parent, Vector3.zero, new Vector3(diameter, diameter, diameter * 0.4f), m);
+            t.position = worldPos - parent.forward * (diameter * 0.25f);   // sticks out of the housing towards the driver
+            return t;
         }
 
         /// <summary>Pole + signal head with three emissive lamps. Lamps face the oncoming traffic (against the light's blue arrow).</summary>
