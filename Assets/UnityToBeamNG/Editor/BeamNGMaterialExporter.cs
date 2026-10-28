@@ -359,14 +359,12 @@ namespace UnityToBeamNG
             }
 
             c.Report.Add(ReportStatus.PASS, "Material", $"{reg.Materials.Count} material(s) converted to main.materials.json (base color, metallic, roughness).");
-            c.Report.Add(ReportStatus.WARNING, "Material", "Material JSON follows the docs example (version 1.5) but has not been verified in game.", "Check the BeamNG log for material errors on first load.");
             if (normals > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{normals} material(s) with a normal map: normal maps are NOT transferred (encoding unreliable).", "Add normal maps manually as *.normal.png.");
             if (tiled > 0) c.Report.Add(ReportStatus.PASS, "Material", $"{tiled} material(s) with texture tiling/offset: baked into the DAE UVs.");
             if (opacityMaps > 0) c.Report.Add(ReportStatus.PASS, "Material", $"{opacityMaps} material(s) with an alpha texture: color PNG is opaque, alpha exported as separate opacityMap (*.dataR.png). BeamNG's texture cooker drops alpha of *.color.png (black background otherwise).");
             if (noAlpha > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{noAlpha} material(s) use a transparent render mode but their texture has no alpha channel: exported opaque.", "Use a PNG with a transparent background (or set the material to Opaque).");
-            if (transparent > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{transparent} transparent material(s) exported with alpha blending (translucent/LerpAlpha, e.g. road markings); untested in game.", "");
-            if (cutouts > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{cutouts} cutout material(s) exported with alpha test; untested in game.", "");
-            if (emissive > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{emissive} material(s) with emission exported (emissiveMap/emissiveFactor); untested in game.", "");
+            if (transparent > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{transparent} transparent material(s) exported with alpha blending (translucent/LerpAlpha, e.g. road markings).", "");
+            if (emissive > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{emissive} material(s) with emission exported (emissiveMap/emissiveFactor).", "");
             if (tinted > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{tinted} material(s) with a color tint: the tint is not baked into the texture.", "");
         }
     }
