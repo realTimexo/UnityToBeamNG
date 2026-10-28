@@ -4,7 +4,7 @@
 
 Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.drive mod ZIP.
 
-> **Status: alpha (v0.4.1).** Meshes, materials, spawn point, collision and terrain height have been confirmed working in BeamNG.drive 0.40. Terrain textures, the road network (AI), traffic lights and (new in 0.4.0) **vegetation and the minimap** are **not yet verified in game**. See [Known limitations](#known-limitations).
+> **Status: alpha (v0.4.2).** Meshes, materials, spawn point, collision, terrain height, terrain textures, vegetation (trees/grass with collision) and the minimap have been confirmed working in BeamNG.drive 0.40. The road network (AI), traffic lights, **stop signs, water** and wind sway are **not yet verified in game**. See [Known limitations](#known-limitations).
 
 > **This project is vibe coded.** It was written together with an AI assistant and tested by hand. Expect rough edges, and please [report bugs](https://github.com/realTimexo/UnityToBeamNG/issues/new/choose) with the files listed below - that is how it gets better.
 
@@ -107,6 +107,16 @@ Open **Tools > Unity to BeamNG > Vegetation**.
 - **Details:** set the density and the instance budget. Millions of grass blades would make BeamNG slow, so the tool lowers the density automatically when the budget is exceeded (see the report).
 - Forest items have only one uniform scale, so tree width/height scale is averaged. No wind and no far LODs yet.
 - **Minimap:** created automatically (terrain colours, roads, buildings, trees) and added to `info.json`. If it is shifted or flipped in game, send a screenshot.
+
+## New in 0.4.2
+- **Own preview image** (Map tab), cropped to 16:9. Empty = screenshot at the spawn point.
+- **Default description** "Made with UnityToBeamNG!" when the description field is empty.
+- **Stop signs** (Traffic tab): simple model or logic only (use your own 3D model). Exported as `signStop`/`basicStop` so the AI stops. They only work on roads that are part of the road network (mark roads in the Roads tab).
+- **Water** (Water tab): footprint = X/Z scale, surface = Y, type lake/ocean/river/pool/stream, depth. Exported as `WaterBlock`, drawn on the minimap.
+- **Roads detected automatically** (Road Architect) when none are marked; the minimap draws roads only if they exist.
+- **Road Architect intersections** (traffic lights / all-way stop) are converted automatically at export (or via button in the Traffic tab): timing is taken from Road Architect, the AI obeys them. Road Architect's lamp texture (atlas) is replaced by own lamp discs placed at its `redlight`/`yellowlight`/`greenlight` objects, which switch colour in BeamNG; housings and poles are exported as they are.
+- **Existing water in your scene** (large flat meshes with a water material, HDRP WaterSurface) is exported as BeamNG water automatically (can be turned off in the Water tab).
+- Removed warnings for features already confirmed in game.
 
 ## New in 0.4.1
 
