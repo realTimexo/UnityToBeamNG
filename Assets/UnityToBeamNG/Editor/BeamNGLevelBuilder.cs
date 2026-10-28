@@ -66,7 +66,7 @@ namespace UnityToBeamNG
             return list;
         }
 
-        public static string Build(BeamNGExportContext c, ScanResult scan, TerrainResult terrain, List<string> staticLines, List<ResolvedSpawn> spawns, VegetationResult veg = null, MinimapResult mini = null)
+        public static string Build(BeamNGExportContext c, ScanResult scan, TerrainResult terrain, List<string> staticLines, List<ResolvedSpawn> spawns, VegetationResult veg = null, MinimapResult mini = null, List<string> waterLines = null)
         {
             var s = c.Settings;
             var r = c.Report;
@@ -82,6 +82,7 @@ namespace UnityToBeamNG
             };
             if (terrain != null) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Terrain").Str("__parent", "MissionGroup").ToString());
             if (staticLines != null && staticLines.Count > 0) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Buildings").Str("__parent", "MissionGroup").ToString());
+            if (waterLines != null && waterLines.Count > 0) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Water").Str("__parent", "MissionGroup").ToString());
             if (c.RoadLines.Count > 0) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Roads").Str("__parent", "MissionGroup").ToString());
             if (veg != null && veg.HasForest) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Vegetation").Str("__parent", "MissionGroup").ToString());
             groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Gameplay").Str("__parent", "MissionGroup").ToString());
@@ -131,6 +132,8 @@ namespace UnityToBeamNG
                         .Arr("position", 0, 0, 0).Arr("rotationMatrix", 1, 0, 0, 0, 1, 0, 0, 0, 1).Arr("scale", 1, 1, 1).Num("lodReflectScalar", 2f).ToString()
                 });
 
+            if (waterLines != null && waterLines.Count > 0) WriteLines(c, MG + "Water/items.level.json", waterLines);
+
             // --- Roads (invisible DecalRoads = AI navigation network) ---
             if (c.RoadLines.Count > 0) WriteLines(c, MG + "Roads/items.level.json", c.RoadLines);
 
@@ -156,7 +159,7 @@ namespace UnityToBeamNG
             foreach (var sp in spawns)
                 spawnArr.Add(new JsonObj().Str("translationId", sp.Info.Display).Str("description", sp.Info.Display)
                     .Str("objectname", sp.Info.Name).Str("preview", "preview.png").ToString());
-            var info = new JsonObj().Str("title", s.mapName).Str("description", s.description).Str("authors", s.author)
+            var info = new JsonObj().Str("title", s.mapName).Str("description", string.IsNullOrWhiteSpace(s.description) ? "Made with UnityToBeamNG!" : s.description).Str("authors", s.author)
                 .Str("version", s.version).Str("defaultSpawnPointName", def.Info.Name)
                 .Raw("defaultDate", new JsonObj().Num("year", 2026).Num("month", 6).Num("day", 20).ToString())
                 .Raw("size", BeamNGJson.A(Mathf.Round(size), Mathf.Round(size)))
@@ -170,7 +173,6 @@ namespace UnityToBeamNG
             c.Require("info.json");
 
             r.Add(ReportStatus.PASS, "Level", $"info.json, preview.png and main/MissionGroup/**/items.level.json written ({staticLines?.Count ?? 0} TSStatic, {spawns.Count} spawn point(s), default: '{def.Info.Name}').");
-            r.Add(ReportStatus.WARNING, "Level", "Structure follows the BeamNG docs (items.level.json, info.json); completeness (e.g. sky/lighting details) is untested.", "Check the log on first load.");
             return def.Info.Name;
         }
 
@@ -178,6 +180,35 @@ namespace UnityToBeamNG
         {
             var path = c.Abs("preview.png");
             c.Require("preview.png");
+            if (!string.IsNullOrEmpty(c.Settings.previewImagePath) && File.Exists(c.Settings.previewImagePath))
+            {
+                Texture2D src = null; RenderTexture crt = null; Texture2D outTex = null;
+                try
+                {
+                    src = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                    if (!src.LoadImage(File.ReadAllBytes(c.Settings.previewImagePath))) throw new Exception("image could not be decoded");
+                    // cover-crop to 16:9
+                    float a = src.width / (float)src.height, target = 16f / 9f;
+                    var sc = Vector2.one; var off = Vector2.zero;
+                    if (a > target) { sc.x = target / a; off.x = (1f - sc.x) * 0.5f; } else { sc.y = a / target; off.y = (1f - sc.y) * 0.5f; }
+                    crt = RenderTexture.GetTemporary(1280, 720, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+                    Graphics.Blit(src, crt, sc, off);
+                    var prev0 = RenderTexture.active; RenderTexture.active = crt;
+                    outTex = new Texture2D(1280, 720, TextureFormat.RGB24, false);
+                    outTex.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0); outTex.Apply();
+                    RenderTexture.active = prev0;
+                    File.WriteAllBytes(path, outTex.EncodeToPNG());
+                    c.Report.Add(ReportStatus.PASS, "Level", "Own preview image used (cropped to 16:9, 1280x720).");
+                    return;
+                }
+                catch (Exception e) { c.Report.Add(ReportStatus.WARNING, "Level", "Own preview image could not be used (" + e.Message + "); a screenshot of the spawn is rendered instead.", ""); }
+                finally
+                {
+                    if (crt != null) RenderTexture.ReleaseTemporary(crt);
+                    if (src != null) UnityEngine.Object.DestroyImmediate(src);
+                    if (outTex != null) UnityEngine.Object.DestroyImmediate(outTex);
+                }
+            }
             GameObject go = null; RenderTexture rt = null; Texture2D tex = null;
             try
             {
