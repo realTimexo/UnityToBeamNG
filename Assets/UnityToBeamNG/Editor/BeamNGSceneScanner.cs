@@ -33,6 +33,8 @@ namespace UnityToBeamNG
         public int SkippedExcluded;
         public int MirroredObjects;
         public int SkinnedBaked;
+        public readonly List<string> MissingMaterialObjects = new List<string>();
+        public readonly List<string> EmptySlotObjects = new List<string>();
         public readonly List<string> NotExported = new List<string>();
         public long Triangles;
 
@@ -71,6 +73,7 @@ namespace UnityToBeamNG
 
                 var cs = mr.GetComponentInParent<BeamNGCollisionSettings>();
                 if (cs != null && cs.excludeFromExport) { res.SkippedExcluded++; continue; }
+                if (BeamNGWaterExporter.IsAutoWaterMesh(mr, s)) { res.NotExported.Add(path + ": water surface (exported as BeamNG water)"); continue; }
 
                 // LOD: export LOD0 only
                 var lg = mr.GetComponentInParent<LODGroup>();
@@ -99,7 +102,7 @@ namespace UnityToBeamNG
                     continue;
                 }
                 var mats = mr.sharedMaterials;
-                foreach (var m in mats) if (m == null) res.MissingMaterials++;
+                { int nul = 0; foreach (var m in mats) if (m == null) { res.MissingMaterials++; nul++; } if (nul > 0) res.EmptySlotObjects.Add(path + " (" + nul + " empty of " + mats.Length + " slot(s), mesh has " + mesh.subMeshCount + " submesh(es))"); }
 
                 var mode = cs != null ? cs.mode : BeamNGCollisionMode.Auto;
                 if (mode == BeamNGCollisionMode.Auto)
@@ -125,7 +128,7 @@ namespace UnityToBeamNG
                     var baked = new Mesh { name = sr.sharedMesh.name + "_baked", hideFlags = HideFlags.DontSave };
                     sr.BakeMesh(baked);
                     var smats = sr.sharedMaterials;
-                    foreach (var m in smats) if (m == null) res.MissingMaterials++;
+                    for (int mi = 0; mi < smats.Length; mi++) if (smats[mi] == null) { res.MissingMaterials++; res.MissingMaterialObjects.Add(spath + " (slot " + mi + ", skinned)"); }
                     var smode = scs != null ? scs.mode : BeamNGCollisionMode.Auto;
                     if (smode == BeamNGCollisionMode.Auto)
                         smode = (s.collideAllByDefault || sr.GetComponentInParent<Collider>() != null) ? BeamNGCollisionMode.VisibleMesh : BeamNGCollisionMode.None;
