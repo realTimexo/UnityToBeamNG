@@ -248,7 +248,6 @@ namespace UnityToBeamNG
 
             c.Report.Exported += lines.Count;
             c.Report.Add(ReportStatus.PASS, "Mesh", $"{files.Count} unique mesh(es) written as .dae, {lines.Count} TSStatic object(s).");
-            c.Report.Add(ReportStatus.WARNING, "Mesh", "DAE files and axis conversion have not been verified in BeamNG.", "After loading, check orientation/size of a test object.");
             if (scan.SkippedLod > 0) c.Report.Add(ReportStatus.PASS, "Mesh", $"{scan.SkippedLod} LOD 1+ renderer(s) skipped (only LOD0 exported).");
             if (scan.MirroredObjects > 0) c.Report.Add(ReportStatus.PASS, "Mesh", $"{scan.MirroredObjects} object(s) with negative scale: mirroring baked into the mesh (BeamNG does not render negative scale).");
             return lines;
