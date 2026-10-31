@@ -29,9 +29,9 @@ Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.d
 </p>
 
 <p align="center">
-  <a href="https://github.com/realTimexo/UnityToBeamNG/releases/latest/download/UnityToBeamNG.zip">
-    <img src="https://img.shields.io/badge/DOWNLOAD-LATEST%20VERSION-f54635?style=for-the-badge&logo=github" alt="Download Latest Version">
-  </a>
+  <a href="https://github.com/realTimexo/UnityToBeamNG/releases">
+  <img src="https://img.shields.io/badge/DOWNLOAD-LATEST%20VERSION-f54635?style=for-the-badge&logo=github" alt="Download Latest Version">
+</a>
   <a href="https://github.com/realTimexo/UnityToBeamNG/releases">
     <img src="https://img.shields.io/badge/ALL%20RELEASES-View-blue?style=for-the-badge&logo=github" alt="All Releases">
   </a>
