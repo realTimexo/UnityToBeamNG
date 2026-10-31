@@ -4,6 +4,39 @@
 
 Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.drive mod ZIP.
 
+<p align="center">
+  <a href="https://github.com/realTimexo/UnityToBeamNG/releases/latest">
+    <img src="https://img.shields.io/github/v/tag/realTimexo/UnityToBeamNG?include_prereleases&style=for-the-badge&color=f54635&label=VERSION" alt="Version">
+  </a>
+  <a href="https://github.com/realTimexo/UnityToBeamNG/releases">
+    <img src="https://img.shields.io/github/downloads/realTimexo/UnityToBeamNG/total?style=for-the-badge&color=2ea44f&label=DOWNLOADS" alt="Downloads">
+  </a>
+  <a href="https://github.com/realTimexo/UnityToBeamNG/stargazers">
+    <img src="https://img.shields.io/github/stars/realTimexo/UnityToBeamNG?style=for-the-badge&color=ffc83d&label=STARS" alt="Stars">
+  </a>
+  <a href="https://github.com/realTimexo/UnityToBeamNG/network/members">
+    <img src="https://img.shields.io/github/forks/realTimexo/UnityToBeamNG?style=for-the-badge&color=blue&label=FORKS" alt="Forks">
+  </a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/issues/realTimexo/UnityToBeamNG?style=flat-square&color=f54635" alt="Issues">
+  <img src="https://img.shields.io/github/last-commit/realTimexo/UnityToBeamNG?style=flat-square&color=blue" alt="Last Commit">
+  <img src="https://img.shields.io/github/languages/top/realTimexo/UnityToBeamNG?style=flat-square&color=9b59b6" alt="Top Language">
+  <img src="https://img.shields.io/badge/Unity-2022.2%2B-black?style=flat-square&logo=unity" alt="Unity">
+  <img src="https://img.shields.io/badge/BeamNG.drive-0.40-orange?style=flat-square" alt="BeamNG.drive">
+  <img src="https://img.shields.io/badge/Status-Alpha-orange?style=flat-square" alt="Alpha">
+</p>
+
+<p align="center">
+  <a href="https://github.com/realTimexo/UnityToBeamNG/releases/latest/download/UnityToBeamNG.zip">
+    <img src="https://img.shields.io/badge/DOWNLOAD-LATEST%20VERSION-f54635?style=for-the-badge&logo=github" alt="Download Latest Version">
+  </a>
+  <a href="https://github.com/realTimexo/UnityToBeamNG/releases">
+    <img src="https://img.shields.io/badge/ALL%20RELEASES-View-blue?style=for-the-badge&logo=github" alt="All Releases">
+  </a>
+</p>
+
 > **Status: alpha (v0.4.2).** Meshes, materials, spawn point, collision, terrain height, terrain textures, vegetation (trees/grass with collision) and the minimap have been confirmed working in BeamNG.drive 0.40. The road network (AI), traffic lights, **stop signs, water** and wind sway are **not yet verified in game**. See [Known limitations](#known-limitations).
 
 > **This project is vibe coded.** It was written together with an AI assistant and tested by hand. Expect rough edges, and please [report bugs](https://github.com/realTimexo/UnityToBeamNG/issues/new/choose) with the files listed below - that is how it gets better.
