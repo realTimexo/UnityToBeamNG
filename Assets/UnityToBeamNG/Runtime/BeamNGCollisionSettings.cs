@@ -7,7 +7,8 @@ namespace UnityToBeamNG
         Auto,         // as set in the window (default: everything collides)
         None,         // no collision
         VisibleMesh,  // visible polygons = collision (safe but expensive)
-        Bounds        // bounding box only
+        Bounds,       // bounding box only
+        Simplified    // simplified copy of the mesh as collision (much cheaper than the visible mesh)
     }
 
     /// <summary>Unity-side configuration, not a native BeamNG component.</summary>
