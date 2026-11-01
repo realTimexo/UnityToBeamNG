@@ -17,6 +17,7 @@ namespace UnityToBeamNG
         public string ExtrasDir;   // Root/extras (NOT zipped)
         public Func<string, float, bool> Progress;
         public bool Aborted;
+        public readonly List<string> WaypointLines = new List<string>();   // speed limit chains (BeamNGWaypoint objects)
         public readonly Dictionary<Renderer, string> LampNames = new Dictionary<Renderer, string>();
         public List<string> RoadLines = new List<string>();
         public List<RoadPath> RoadPaths = new List<RoadPath>();
