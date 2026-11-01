@@ -28,8 +28,37 @@ namespace UnityToBeamNG
             return names.Count > 0;
         }
 
+        public const float SnapRange = 35f;
+        static int snapped, notSnapped;
+
+        /// <summary>BeamNG assigns a signal to the nearest road of the navigation graph: place it on the road centre line (Unity space) and align its direction with the road.</summary>
+        public static void SnapToRoad(BeamNGExportContext c, Vector3 pos, Vector3 fwd, out Vector3 sp, out Vector3 sf)
+        {
+            sp = pos; sf = fwd;
+            float best = SnapRange * SnapRange; bool found = false;
+            foreach (var rp in c.RoadPaths)
+                for (int i = 0; i + 1 < rp.Points.Count; i++)
+                {
+                    var a = rp.Points[i]; var b = rp.Points[i + 1];
+                    var ab = b - a; ab.y = 0f; float len2 = ab.sqrMagnitude; if (len2 < 1e-6f) continue;
+                    var ap = pos - a; ap.y = 0f;
+                    float t = Mathf.Clamp01(Vector3.Dot(ap, ab) / len2);
+                    var q = a + (b - a) * t;
+                    var d = pos - q; d.y = 0f;
+                    float d2 = d.sqrMagnitude;
+                    if (d2 < best)
+                    {
+                        best = d2; found = true; sp = q;
+                        var tan = ab.normalized; if (Vector3.Dot(tan, fwd) < 0f) tan = -tan;
+                        sf = tan;
+                    }
+                }
+            if (found) snapped++; else notSnapped++;
+        }
+
         public static void Export(BeamNGExportContext c)
         {
+            snapped = 0; notSnapped = 0;
             var r = c.Report;
             var inters = new List<BeamNGTrafficIntersection>(Object.FindObjectsByType<BeamNGTrafficIntersection>(FindObjectsSortMode.None));
             inters.Sort((a, b) => string.CompareOrdinal(BeamNGEditorUtilities.HierarchyPath(a.transform), BeamNGEditorUtilities.HierarchyPath(b.transform)));
@@ -76,9 +105,10 @@ namespace UnityToBeamNG
                     covered.Add(l);
                     string name = interName + "_" + BeamNGEditorUtilities.SafeId(l.name); int n = 2; string baseName = name;
                     while (!usedNames.Add(name)) name = baseName + "_" + (n++);
-                    var pos = BeamNGCoordinateConverter.Position(l.transform.position);
                     var f = l.transform.forward; f.y = 0f; if (f.sqrMagnitude < 1e-6f) f = Vector3.forward; f.Normalize();
-                    var dir = BeamNGCoordinateConverter.Direction(f);
+                    Vector3 sp0, sf0; SnapToRoad(c, l.transform.position, f, out sp0, out sf0);
+                    var pos = BeamNGCoordinateConverter.Position(sp0);
+                    var dir = BeamNGCoordinateConverter.Direction(sf0);
                     instances.Add(new JsonObj().Num("id", id++).Str("name", name).Num("controllerId", phases[l.phase]).Num("sequenceId", seqId)
                         .Arr("pos", pos.x, pos.y, pos.z).Arr("dir", dir.x, dir.y, dir.z).Str("group", interName).Bool("startDisabled", false).ToString());
                     if (l.linkVisual) c.SignalNames[l] = name;
@@ -114,9 +144,10 @@ namespace UnityToBeamNG
                 }
                 string sname = "stop_" + BeamNGEditorUtilities.SafeId(sg.name); int sn2 = 2; string sbase = sname;
                 while (!usedNames.Add(sname)) sname = sbase + "_" + (sn2++);
-                var spos = BeamNGCoordinateConverter.Position(sg.transform.position);
                 var sf = sg.transform.forward; sf.y = 0f; if (sf.sqrMagnitude < 1e-6f) sf = Vector3.forward; sf.Normalize();
-                var sdir = BeamNGCoordinateConverter.Direction(sf);
+                Vector3 sp1, sf1; SnapToRoad(c, sg.transform.position, sf, out sp1, out sf1);
+                var spos = BeamNGCoordinateConverter.Position(sp1);
+                var sdir = BeamNGCoordinateConverter.Direction(sf1);
                 instances.Add(new JsonObj().Num("id", id++).Str("name", sname).Num("controllerId", stopCtrl).Num("sequenceId", 0)
                     .Arr("pos", spos.x, spos.y, spos.z).Arr("dir", sdir.x, sdir.y, sdir.z).Str("group", "stop_signs").Bool("startDisabled", false).ToString());
                 signCount++;
@@ -140,6 +171,8 @@ namespace UnityToBeamNG
                 r.Add(ReportStatus.PASS, "Traffic", $"{lampSignals.Count} signal(s) with lamp objects: signal_lamps.json + Lua extension (switches red/yellow/green lamps in game).");
             }
             r.Add(ReportStatus.PASS, "Traffic", $"signals.json: {interCount} intersection(s), {instances.Count} signal(s), {controllers.Count} controller(s).");
+            if (snapped + notSnapped > 0)
+                r.Add(notSnapped == 0 ? ReportStatus.PASS : ReportStatus.WARNING, "Traffic", $"{snapped} signal(s)/sign(s) placed on the nearest road centre line; {notSnapped} have no road within {SnapRange:F0} m and stay where they are.", notSnapped > 0 ? "Mark the roads next to them (Roads tab) or move them closer to the road." : "");
             if (c.RoadPaths.Count == 0)
                 r.Add(ReportStatus.WARNING, "Traffic", "Signals only work on roads of the road network, and this map has no road marked (BeamNG log: 'Map node could not be set for signal instance').", "Mark your roads in the Roads tab.");
         }
