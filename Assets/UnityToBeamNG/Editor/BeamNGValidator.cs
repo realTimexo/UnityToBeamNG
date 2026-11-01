@@ -45,7 +45,12 @@ namespace UnityToBeamNG
             foreach (var kv in scan.Unsupported)
                 r.Add(ReportStatus.WARNING, "Unsupported", $"{kv.Value}x {kv.Key} will not be exported.", "");
             if (scan.Triangles > BeamNGSceneScanner.TriangleWarnThreshold)
-                r.Add(ReportStatus.WARNING, "Performance", $"{scan.Triangles:N0} triangles; 'Visible Mesh' collision on all of them can be heavy for BeamNG.", "Use BeamNGCollisionSettings (None/Bounds) on decoration. Nothing is reduced automatically.");
+            {
+                if (s.smartCollision)
+                    r.Add(ReportStatus.PASS, "Performance", $"{scan.Triangles:N0} triangles in the scene. Smart collision is on: {scan.SmartSimplified} heavy object(s) get a simplified collision mesh ({scan.SmartSimplifiedTris:N0} triangles are not used as collision), {scan.SmartNone} tiny object(s) none, {scan.SmartKeptTris:N0} triangles keep exact collision.");
+                else
+                    r.Add(ReportStatus.WARNING, "Performance", $"{scan.Triangles:N0} triangles; 'Visible Mesh' collision on all of them can be heavy for BeamNG.", "Turn on 'Smart collision' in the Modules tab (Performance).");
+            }
             if (scan.Terrains.Count == 0 && s.exportTerrain)
                 r.Add(ReportStatus.WARNING, "Terrain", "No terrain in the scene: the map has no TerrainBlock; the drivable surface must be made of meshes.", "");
             if (scan.SkinnedBaked > 0)
