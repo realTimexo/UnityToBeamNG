@@ -19,6 +19,9 @@ namespace UnityToBeamNG
             "forest", "decal", "particle", "marker", "object", "group", "simgroup", "tsstatic", "item", "trigger", "vehicle", "default"
         };
         /// <summary>Materials of leaves/grass: exported double-sided, alpha as cutout (set by the vegetation exporter).</summary>
+        /// <summary>Road Architect road surface/marking materials: exported matte (asphalt), tiling/roughness reported.</summary>
+        public readonly HashSet<Material> RoadMarker = new HashSet<Material>();
+        public readonly HashSet<Material> RoadSurface = new HashSet<Material>();
         public readonly HashSet<Material> Foliage = new HashSet<Material>();
 
         public string NameOf(Material m)
@@ -60,11 +63,15 @@ namespace UnityToBeamNG
         /// BeamNG's texture cooker treats *.color.png as RGB (alpha is dropped), so a texture with an alpha channel
         /// is split: the color PNG is opaque (colors bled into transparent areas) and the alpha goes to a separate
         /// *.dataR.png opacity map (see OpacityFor).</summary>
-        public string ExportColor(Texture src, string relDir, out int exportedSize)
+        public string ExportColor(Texture src, string relDir, out int exportedSize) { return ExportColor(src, relDir, out exportedSize, Color.white); }
+
+        /// <summary>Same, but the material tint (_Color / _BaseColor) is multiplied into the texture (like Unity's Standard shader does), so it is not lost in BeamNG.</summary>
+        public string ExportColor(Texture src, string relDir, out int exportedSize, Color tint)
         {
+            bool bake = Mathf.Abs(tint.r - 1f) + Mathf.Abs(tint.g - 1f) + Mathf.Abs(tint.b - 1f) > 0.05f;
             exportedSize = 0;
             if (src == null) return null;
-            string key = src.GetInstanceID() + "|" + relDir;
+            string key = src.GetInstanceID() + "|" + relDir + (bake ? "|t" + tint.r.ToString("F3") + "," + tint.g.ToString("F3") + "," + tint.b.ToString("F3") : "");
             string rel;
             if (cache.TryGetValue(key, out rel)) { exportedSize = Mathf.Min(Mathf.ClosestPowerOfTwo(Mathf.Max(16, Mathf.Max(src.width, src.height))), c.Settings.maxTextureSize); return rel; }
             try
@@ -104,6 +111,22 @@ namespace UnityToBeamNG
                     t2.Apply();
                 }
                 AlphaCoverage[rel] = coverage;
+                if (bake)
+                {
+                    // Unity multiplies albedo and colour in linear space (linear project) or directly (gamma project)
+                    bool lin = UnityEngine.QualitySettings.activeColorSpace == ColorSpace.Linear;
+                    var tp = t2.GetPixels32();
+                    float tr = lin ? Mathf.GammaToLinearSpace(tint.r) : tint.r, tg = lin ? Mathf.GammaToLinearSpace(tint.g) : tint.g, tb = lin ? Mathf.GammaToLinearSpace(tint.b) : tint.b;
+                    for (int i = 0; i < tp.Length; i++)
+                    {
+                        float r0 = tp[i].r / 255f, g0 = tp[i].g / 255f, b0 = tp[i].b / 255f;
+                        if (lin) { r0 = Mathf.GammaToLinearSpace(r0) * tr; g0 = Mathf.GammaToLinearSpace(g0) * tg; b0 = Mathf.GammaToLinearSpace(b0) * tb; r0 = Mathf.LinearToGammaSpace(r0); g0 = Mathf.LinearToGammaSpace(g0); b0 = Mathf.LinearToGammaSpace(b0); }
+                        else { r0 *= tr; g0 *= tg; b0 *= tb; }
+                        tp[i] = new Color32((byte)Mathf.Clamp(Mathf.RoundToInt(r0 * 255f), 0, 255), (byte)Mathf.Clamp(Mathf.RoundToInt(g0 * 255f), 0, 255), (byte)Mathf.Clamp(Mathf.RoundToInt(b0 * 255f), 0, 255), 255);
+                    }
+                    t2.SetPixels32(tp);
+                    t2.Apply();
+                }
                 File.WriteAllBytes(c.Abs(rel), t2.EncodeToPNG());
                 Object.DestroyImmediate(t2);
                 c.Require(rel);
@@ -232,6 +255,31 @@ namespace UnityToBeamNG
             return null;
         }
 
+        /// <summary>Name of the texture property that is the colour texture (also for custom shaders such as Road Architect's).</summary>
+        public static string MainTexProp(Material m)
+        {
+            foreach (var p in new[] { "_BaseMap", "_MainTex" }) if (m.HasProperty(p) && m.GetTexture(p) != null) return p;
+            try
+            {
+                foreach (var p in m.GetTexturePropertyNames())
+                {
+                    var l = p.ToLowerInvariant();
+                    if (l.Contains("bump") || l.Contains("normal") || l.Contains("occl") || l.Contains("metal") || l.Contains("emis") || l.Contains("detail") || l.Contains("mask") || l.Contains("height") || l.Contains("parallax") || l.Contains("spec") || l.Contains("cube")) continue;
+                    if (m.GetTexture(p) is Texture2D) return p;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>Tiling/offset of the colour texture property that is really used.</summary>
+        public static void TexST(Material m, out Vector2 scale, out Vector2 offset)
+        {
+            var p = m != null ? MainTexProp(m) : null;
+            if (p != null && m.HasProperty(p)) { scale = m.GetTextureScale(p); offset = m.GetTextureOffset(p); }
+            else { scale = m != null ? m.mainTextureScale : Vector2.one; offset = m != null ? m.mainTextureOffset : Vector2.zero; }
+        }
+
         static bool HasAlpha(Texture t)
         {
             try { return UnityEngine.Experimental.Rendering.GraphicsFormatUtility.HasAlphaChannel(t.graphicsFormat); }
@@ -274,16 +322,22 @@ namespace UnityToBeamNG
             {
                 var name = reg.NameOf(m);
                 var mainTex = FindTex(m, "_BaseMap", "_MainTex");
+                if (mainTex == null) { var mp = MainTexProp(m); if (mp != null) mainTex = m.GetTexture(mp); }
                 var tint = FindColor(m, "_BaseColor", "_Color");
                 string colorRel = null; int sz;
-                if (mainTex != null) colorRel = tex.ExportColor(mainTex, "art/textures", out sz);
+                if (mainTex != null) colorRel = tex.ExportColor(mainTex, "art/textures", out sz, tint);
                 if (colorRel == null) colorRel = tex.ExportSolid(tint, "art/textures");
-                else if (Mathf.Abs(tint.r - 1) + Mathf.Abs(tint.g - 1) + Mathf.Abs(tint.b - 1) > 0.05f) tinted++;
+                else if (Mathf.Abs(tint.r - 1) + Mathf.Abs(tint.g - 1) + Mathf.Abs(tint.b - 1) > 0.05f) tinted++;   // baked into the texture
 
                 float metallic = Mathf.Clamp01(FindFloat(m, 0f, "_Metallic"));
                 float smooth = Mathf.Clamp01(FindFloat(m, 0.3f, "_Smoothness", "_Glossiness"));
 
-                var ts = m.mainTextureScale;
+                if (reg.RoadSurface.Contains(m))
+                {
+                    // asphalt is rough: Unity's default smoothness would make it look bright and glossy in BeamNG
+                    metallic = 0f; smooth = Mathf.Min(smooth, 0.1f);
+                }
+                Vector2 ts, tOff; TexST(m, out ts, out tOff);
                 if (mainTex != null && (Mathf.Abs(ts.x - 1) > 0.001f || Mathf.Abs(ts.y - 1) > 0.001f)) tiled++;
                 if (FindTex(m, "_BumpMap") != null) normals++;
 
@@ -292,7 +346,9 @@ namespace UnityToBeamNG
                 float mode = m.HasProperty("_Mode") ? m.GetFloat("_Mode") : 0f;
                 bool blend = m.renderQueue >= 3000 || mode >= 2f || m.IsKeywordEnabled("_ALPHABLEND_ON") || m.IsKeywordEnabled("_ALPHAPREMULTIPLY_ON");
                 bool cutout = !blend && (m.renderQueue >= 2450 || Mathf.Approximately(mode, 1f) || m.IsKeywordEnabled("_ALPHATEST_ON"));
-                if (!blend && !cutout && mainTex != null && HasAlpha(mainTex) && LooksLikeMarking(name)) blend = true;
+                string shn = m.shader != null ? (m.shader.name ?? "").ToLowerInvariant() : "";
+                if (!blend && !cutout) { if (shn.Contains("cutout")) cutout = true; else if (shn.Contains("transparent") || shn.Contains("fade") || shn.Contains("alpha")) blend = true; }
+                if (!blend && !cutout && mainTex != null && HasAlpha(mainTex) && (LooksLikeMarking(name) || reg.RoadMarker.Contains(m))) blend = true;
                 string opacityRel = mainTex != null ? tex.OpacityFor(colorRel) : null;
                 float tintAlpha = Mathf.Clamp01(tint.a);
                 // Sign-like textures (alpha almost binary) look better and sort correctly as alpha test.
@@ -365,7 +421,7 @@ namespace UnityToBeamNG
             if (noAlpha > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{noAlpha} material(s) use a transparent render mode but their texture has no alpha channel: exported opaque.", "Use a PNG with a transparent background (or set the material to Opaque).");
             if (transparent > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{transparent} transparent material(s) exported with alpha blending (translucent/LerpAlpha, e.g. road markings).", "");
             if (emissive > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{emissive} material(s) with emission exported (emissiveMap/emissiveFactor).", "");
-            if (tinted > 0) c.Report.Add(ReportStatus.WARNING, "Material", $"{tinted} material(s) with a color tint: the tint is not baked into the texture.", "");
+            if (tinted > 0) c.Report.Add(ReportStatus.PASS, "Material", $"{tinted} material(s) with a colour tint: the tint was multiplied into the texture (as Unity shows it).", "");
         }
     }
 }
