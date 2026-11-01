@@ -37,7 +37,7 @@ Build your map in Unity, click **EXPORT TO BEAMNG**, get an installable BeamNG.d
   </a>
 </p>
 
-> **Status: alpha (v0.4.2).** Meshes, materials, spawn point, collision, terrain height, terrain textures, vegetation (trees/grass with collision) and the minimap have been confirmed working in BeamNG.drive 0.40. The road network (AI), traffic lights, **stop signs, water** and wind sway are **not yet verified in game**. See [Known limitations](#known-limitations).
+> **Status: alpha (v0.4.3).** Meshes, materials, spawn point, collision, terrain height, terrain textures, vegetation (trees/grass with collision) and the minimap have been confirmed working in BeamNG.drive 0.40. The road network (AI), traffic lights, **stop signs, water** and wind sway are **not yet verified in game**. See [Known limitations](#known-limitations).
 
 > **This project is vibe coded.** It was written together with an AI assistant and tested by hand. Expect rough edges, and please [report bugs](https://github.com/realTimexo/UnityToBeamNG/issues/new/choose) with the files listed below - that is how it gets better.
 
@@ -140,6 +140,14 @@ Open **Tools > Unity to BeamNG > Vegetation**.
 - **Details:** set the density and the instance budget. Millions of grass blades would make BeamNG slow, so the tool lowers the density automatically when the budget is exceeded (see the report).
 - Forest items have only one uniform scale, so tree width/height scale is averaged. No wind and no far LODs yet.
 - **Minimap:** created automatically (terrain colours, roads, buildings, trees) and added to `info.json`. If it is shifted or flipped in game, send a screenshot.
+
+## New in 0.4.3
+- **Speed limit signs** (Traffic tab): simple model with the number on it (pole + sign, replaceable by your own 3D model), limit in **km/h or mph** per sign. The limit is applied to the road in front of the sign (length adjustable) via `map.json` (speed limit in m/s on the road network, per the BeamNG docs). Untested in game.
+- **Performance automatically** (Modules tab): *Smart collision* - heavy objects (over 1,500 triangles by default) get a simplified collision mesh instead of exact `Visible Mesh`, tiny objects get none; *automatic distance LOD* for heavy meshes; meshes with more than ~65,000 vertices are split into parts. In Unity nothing changes. The old "Visible Mesh collision on everything is heavy" warning only appears if you turn Smart collision off.
+- **Road Architect roads**: spline nodes / splines are no longer mistaken for roads (that produced hundreds of duplicate roads); roads are always searched at export; width is read from `RoadWidth()` (FritzsHero fork). Traffic lights and signs are snapped to the nearest road so BeamNG can attach them to the road network.
+- **Textures**: the material colour tint (e.g. darker road textures set in Road Architect) is multiplied into the exported texture, as Unity shows it.
+- **Minimap options** (Vegetation tab): BeamNG draws the road network itself, so roads are no longer painted into the image by default; offset corner and flip switches if the map is shifted.
+- **Water**: texture paths for the water object are written (fixes "Texture missing" in the log).
 
 ## New in 0.4.2
 - **Own preview image** (Map tab), cropped to 16:9. Empty = screenshot at the spawn point.
