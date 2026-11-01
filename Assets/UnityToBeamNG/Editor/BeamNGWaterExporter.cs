@@ -83,9 +83,23 @@ namespace UnityToBeamNG
                 var pos = BeamNGCoordinateConverter.Position(it.Center);
                 var rot = BeamNGCoordinateConverter.RotationMatrix(BeamNGCoordinateConverter.Rotation(yaw));
                 var name = "water_" + BeamNGEditorUtilities.SafeId(it.Name).ToLowerInvariant() + "_" + (n++);
-                lines.Add(new JsonObj().Str("class", "WaterBlock").Str("name", name).Str("__parent", "Water")
+                bool ocean = it.Material == "water_ocean";
+                var o = new JsonObj().Str("class", "WaterBlock").Str("name", name).Str("__parent", "Water")
                     .Arr("position", pos.x, pos.y, pos.z).Raw("rotationMatrix", BeamNGJson.A(rot))
-                    .Arr("scale", sx, sz, Mathf.Max(0.5f, it.Depth)).Str("material", it.Material).Num("gridElementSize", Mathf.Clamp(Mathf.Min(sx, sz) / 20f, 2f, 10f)).ToString());
+                    .Arr("scale", sx, sz, Mathf.Max(1f, it.Depth * 2f)).Str("material", it.Material)
+                    .Num("gridElementSize", Mathf.Clamp(Mathf.Min(sx, sz) / 32f, 0.5f, 4f)).Num("gridSize", Mathf.Max(1f, Mathf.Floor(Mathf.Min(100f, Mathf.Min(sx, sz)))));
+                // look + textures: without these textures BeamNG logs "WaterObject::initTextures - Texture missing" (paths as used by working level generators)
+                o.Str("depthGradientTex", "/assets/materials/tileable/water/depthcolor_ramp/depthcolor_ramp_italy_muddy_b.png")
+                 .Str("foamTex", "/assets/materials/tileable/water/water_effects/foam2_b.color.dds")
+                 .Str("rippleTex", "/assets/materials/tileable/water/water_effects/ripple_nm.normal.dds")
+                 .Raw("baseColor", ocean ? "[30,80,110,255]" : "[44,74,60,255]").Raw("underwaterColor", ocean ? "[20,70,110,240]" : "[52,78,58,240]")
+                 .Num("clarity", 0.12f).Num("depthGradientMax", 30f).Num("foamAmbientLerp", 1.3f).Num("foamMaxDepth", 0.15f).Num("foamRippleInfluence", 0.015f)
+                 .Num("fresnelBias", 0.2f).Num("fresnelPower", 20f).Bool("fullReflect", false).Num("overallRippleMagnitude", 0.6f).Num("overallWaveMagnitude", 0f)
+                 .Num("reflectivity", 0.8f).Num("specularPower", 200f).Num("waterFogDensity", 1f).Num("waterFogDensityOffset", 0.1f).Num("wetDarkening", 0.5f).Num("wetDepth", 0.2f)
+                 .Raw("Foam", "[{},{}]")
+                 .Raw("Ripples (texture animation)", "[{\"rippleDir\":[0,1],\"rippleMagnitude\":0.8,\"rippleSpeed\":0.03,\"rippleTexScale\":[12,12]},{\"rippleDir\":[0,1],\"rippleSpeed\":0.09,\"rippleTexScale\":[6,6]},{\"rippleDir\":[0.7,-0.7],\"rippleMagnitude\":1,\"rippleSpeed\":0.012,\"rippleTexScale\":[3,3]}]")
+                 .Raw("Waves (vertex undulation)", "[{\"waveDir\":[0,1],\"waveMagnitude\":0.2,\"waveSpeed\":1},{\"waveDir\":[0.707,0.707],\"waveMagnitude\":0.2,\"waveSpeed\":1},{\"waveDir\":[0.5,0.86],\"waveMagnitude\":0.2,\"waveSpeed\":1}]");
+                lines.Add(o.ToString());
                 c.WaterAreas.Add(new WaterArea { Center = new Vector2(it.Center.x, it.Center.z), Size = new Vector2(sx, sz), Yaw = it.Yaw });
             }
             if (lines.Count > 0)
