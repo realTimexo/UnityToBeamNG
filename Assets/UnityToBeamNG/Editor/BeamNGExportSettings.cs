@@ -31,7 +31,16 @@ namespace UnityToBeamNG
         // --- Modules ---
         public bool exportTerrain = true;
         public bool exportMeshes = true;
+        public bool smartCollision = true;           // performance: heavy objects get a simplified collision mesh, tiny ones none
+        public int smartHeavyTris = 1500;            // above this triangle count an object uses the simplified collision
+        public bool autoLod = true;                  // performance: heavy objects get an extra simplified detail level for distance
+        public int autoLodMinTris = 2500;
         public bool collideAllByDefault = true;      // meshes without a collider still collide
+        public bool minimapRoads = true;             // draw roads into the minimap image (BeamNG draws the road network itself)
+        public bool minimapInfoJson = true;          // also register the image in info.json "minimap" (otherwise only TerrainBlock.minimapImage)
+        public bool minimapOffsetBottomLeft = false; // info.json offset = bottom-left corner instead of top-left
+        public bool minimapFlipV = false;            // mirror the image vertically (if BeamNG shows it upside down)
+        public bool minimapFlipH = false;
         public bool exportMinimap = true;            // top-down minimap image + info.json "minimap" entry
         public int minimapPixels = 0;                // 0 = auto (terrain resolution, max 2048); else 512..4096 (pixels, square)
 
