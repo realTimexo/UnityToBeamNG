@@ -10,7 +10,8 @@ namespace UnityToBeamNG
         public float X0, Z0, Side;   // Unity world: west edge, south edge, edge length (square)
         public int Pixels;
         /// <summary>info.json "offset": top-left corner in BeamNG coordinates (x = Unity x, y = Unity z; image top = north = +y).</summary>
-        public Vector2 OffsetBeam { get { return new Vector2(X0, Z0 + Side); } }
+        public bool BottomLeft;
+        public Vector2 OffsetBeam { get { return new Vector2(X0, BottomLeft ? Z0 : Z0 + Side); } }
     }
 
     /// <summary>
@@ -32,7 +33,7 @@ namespace UnityToBeamNG
             int N = Mathf.Clamp(Mathf.ClosestPowerOfTwo(Mathf.Max(256, want)), 256, 4096);
 
             // ----- extent -----
-            var res = new MinimapResult { Pixels = N };
+            var res = new MinimapResult { Pixels = N, BottomLeft = c.Settings.minimapOffsetBottomLeft };
             var terrains = terrain != null ? scan.Terrains : new List<Terrain>();
             if (terrains.Count > 0)
             {
@@ -91,6 +92,7 @@ namespace UnityToBeamNG
             // ----- roads (the same centre lines that become the DecalRoad network) -----
             foreach (var road in c.RoadPaths)
             {
+                if (!c.Settings.minimapRoads) break;
                 if (road.Points.Count < 2) continue;
                 float halfPx = Mathf.Max(1.5f, road.Width * 0.5f / res.Side * N);
                 for (int pass = 0; pass < 2; pass++)
@@ -111,6 +113,14 @@ namespace UnityToBeamNG
             var tex = new Texture2D(N, N, TextureFormat.RGB24, false, false);
             try
             {
+                if (c.Settings.minimapFlipV || c.Settings.minimapFlipH)
+                {
+                    var f = new Color32[buf.Length];
+                    for (int y = 0; y < N; y++)
+                        for (int x = 0; x < N; x++)
+                            f[y * N + x] = buf[(c.Settings.minimapFlipV ? N - 1 - y : y) * N + (c.Settings.minimapFlipH ? N - 1 - x : x)];
+                    buf = f;
+                }
                 tex.SetPixels32(buf);
                 tex.Apply();
                 File.WriteAllBytes(c.Abs(MinimapResult.File), tex.EncodeToPNG());
@@ -119,7 +129,7 @@ namespace UnityToBeamNG
             c.Require(MinimapResult.File);
 
             r.Add(ReportStatus.PASS, "Minimap", $"minimap/terrain.png ({N}x{N}) written: terrain colours, {c.RoadPaths.Count} road(s), {buildings} building footprint(s), {(veg != null ? veg.TreeXZ.Count : 0):N0} tree(s). info.json: size [{res.Side:F0},{res.Side:F0}], offset [{res.OffsetBeam.x:F0},{res.OffsetBeam.y:F0}].");
-            if (c.RoadPaths.Count == 0) r.Add(ReportStatus.WARNING, "Minimap", "No roads on the minimap: no BeamNGRoad / BeamNGRoadPiece / Road Architect road was found. Roads only appear if they are marked in the Roads tab.", "Roads tab -> mark your roads.");
+            if (c.RoadPaths.Count == 0) r.Add(ReportStatus.WARNING, "Minimap", "No roads in the road network (BeamNG draws the roads on the minimap itself, from the DecalRoads): no BeamNGRoad / BeamNGRoadPiece / Road Architect road was found. Roads only appear if they are marked in the Roads tab.", "Roads tab -> mark your roads.");
             r.Add(ReportStatus.WARNING, "Minimap", "Minimap follows the info.json docs (minimap: file/size/offset). The offset is assumed to be the TOP-LEFT corner in world units; not yet verified in game.", "Open the map screen in BeamNG: if the image is shifted/flipped, send a screenshot.");
             return res;
         }
