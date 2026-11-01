@@ -82,6 +82,7 @@ namespace UnityToBeamNG
             };
             if (terrain != null) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Terrain").Str("__parent", "MissionGroup").ToString());
             if (staticLines != null && staticLines.Count > 0) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Buildings").Str("__parent", "MissionGroup").ToString());
+            if (c.WaypointLines.Count > 0) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "SpeedLimits").Str("__parent", "MissionGroup").ToString());
             if (waterLines != null && waterLines.Count > 0) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Water").Str("__parent", "MissionGroup").ToString());
             if (c.RoadLines.Count > 0) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Roads").Str("__parent", "MissionGroup").ToString());
             if (veg != null && veg.HasForest) groups.Add(new JsonObj().Str("class", "SimGroup").Str("name", "Vegetation").Str("__parent", "MissionGroup").ToString());
@@ -132,6 +133,7 @@ namespace UnityToBeamNG
                         .Arr("position", 0, 0, 0).Arr("rotationMatrix", 1, 0, 0, 0, 1, 0, 0, 0, 1).Arr("scale", 1, 1, 1).Num("lodReflectScalar", 2f).ToString()
                 });
 
+            if (c.WaypointLines.Count > 0) WriteLines(c, MG + "SpeedLimits/items.level.json", c.WaypointLines);
             if (waterLines != null && waterLines.Count > 0) WriteLines(c, MG + "Water/items.level.json", waterLines);
 
             // --- Roads (invisible DecalRoads = AI navigation network) ---
@@ -165,7 +167,7 @@ namespace UnityToBeamNG
                 .Raw("size", BeamNGJson.A(Mathf.Round(size), Mathf.Round(size)))
                 .Raw("previews", BeamNGJson.AS(new[] { "preview.png" }))
                 .Raw("spawnPoints", "[" + string.Join(",", spawnArr) + "]");
-            if (mini != null)
+            if (mini != null && s.minimapInfoJson)
                 info.Raw("minimap", "[" + new JsonObj().Str("file", MinimapResult.File).Raw("size", BeamNGJson.A(Mathf.Round(mini.Side), Mathf.Round(mini.Side)))
                     .Raw("offset", BeamNGJson.A(Mathf.Round(mini.OffsetBeam.x), Mathf.Round(mini.OffsetBeam.y))) + "]");
             if (s.driveOnLeft) info.Raw("roadRules", new JsonObj().Bool("rightHandDrive", true).ToString());
