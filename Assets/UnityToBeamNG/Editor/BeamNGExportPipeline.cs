@@ -26,7 +26,7 @@ namespace UnityToBeamNG
     [Serializable]
     public class ExportManifest
     {
-        public string tool = "Unity to BeamNG 0.4.2";
+        public string tool = "Unity to BeamNG 0.4.3";
         public string unityVersion;
         public string levelName;
         public string mapName;
@@ -61,6 +61,19 @@ namespace UnityToBeamNG
                 BeamNGValidator.ValidateSettings(s, r, !validateOnly);
                 if (r.HasErrors) return Finish(s, r, "Error (settings)");
 
+                // scene preparation BEFORE the scan so that generated objects (signal lamps, hidden Road Architect lenses) are part of it
+                BeamNGRoadTools.RepairLampMaterials();
+                if (BeamNGRoadArchitectSignals.NeedsConversion())
+                {
+                    int rl, rs; var notes = new List<string>();
+                    int ri = BeamNGRoadArchitectSignals.Convert(out rl, out rs, notes);
+                    if (ri > 0) r.Add(ReportStatus.PASS, "Traffic", $"Road Architect: {ri} intersection(s) converted automatically ({rl} traffic light(s), {rs} stop sign(s)).");
+                    foreach (var nt in notes) r.Add(ReportStatus.WARNING, "Traffic", nt, "");
+                }
+                {
+                    int found = BeamNGRoadTools.FindRoadArchitectRoads();
+                    if (found > 0) r.Add(ReportStatus.PASS, "Roads", $"{found} Road Architect road(s) were found and marked automatically.");
+                }
                 if (ctx.Cancelled("Scanning scene", 0.05f)) return Abort(r, tmp);
                 var scan = BeamNGSceneScanner.Scan(s, r);
                 BeamNGValidator.ValidateScan(scan, s, r);
@@ -77,30 +90,14 @@ namespace UnityToBeamNG
                 Directory.CreateDirectory(ctx.ExtrasDir);
 
                 var reg = new BeamNGMaterialRegistry();
+                foreach (var rm in BeamNGRoadExporter.RoadArchitectMaterials(reg.RoadMarker)) reg.RoadSurface.Add(rm);
                 var tex = new BeamNGTextureExporter(ctx);
                 var manifest = new ExportManifest { unityVersion = Application.unityVersion, levelName = s.levelName, mapName = s.mapName, author = s.author };
 
-                if (BeamNGRoadArchitectSignals.NeedsConversion())
-                {
-                    int rl, rs; var notes = new List<string>();
-                    int ri = BeamNGRoadArchitectSignals.Convert(out rl, out rs, notes);
-                    if (ri > 0) r.Add(ReportStatus.PASS, "Traffic", $"Road Architect: {ri} intersection(s) converted automatically ({rl} traffic light(s), {rs} stop sign(s)).");
-                    foreach (var nt in notes) r.Add(ReportStatus.WARNING, "Traffic", nt, "");
-                }
-                else
-                {
-                    string diag = BeamNGRoadArchitectSignals.Diagnose();
-                    if (diag != "" && UnityEngine.Object.FindObjectsByType<BeamNGTrafficIntersection>(FindObjectsSortMode.None).Length == 0 && UnityEngine.Object.FindObjectsByType<BeamNGTrafficSign>(FindObjectsSortMode.None).Length == 0)
-                        r.Add(ReportStatus.WARNING, "Traffic", diag, "");
-                }
-                BeamNGSignalExporter.Export(ctx);
-                if (UnityEngine.Object.FindObjectsByType<BeamNGRoad>(FindObjectsSortMode.None).Length == 0 && UnityEngine.Object.FindObjectsByType<BeamNGRoadPiece>(FindObjectsSortMode.None).Length == 0)
-                {
-                    int found = BeamNGRoadTools.FindRoadArchitectRoads();
-                    if (found > 0) r.Add(ReportStatus.PASS, "Roads", $"No road was marked: {found} Road Architect road(s) were found and marked automatically.");
-                }
                 ctx.RoadPaths = BeamNGRoadExporter.Collect(r);
                 ctx.RoadLines = BeamNGRoadExporter.BuildLines(ctx.RoadPaths);
+                BeamNGSignalExporter.Export(ctx);
+                BeamNGSpeedSignExporter.Export(ctx);
 
                 TerrainResult terrain = null;
                 if (s.exportTerrain && scan.Terrains.Count > 0)
