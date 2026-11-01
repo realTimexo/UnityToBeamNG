@@ -37,6 +37,7 @@ namespace UnityToBeamNG
         public readonly List<string> EmptySlotObjects = new List<string>();
         public readonly List<string> NotExported = new List<string>();
         public long Triangles;
+        public int SmartNone, SmartSimplified, SmartSimplifiedTris, SmartKeptTris, AutoLods;
 
         public SpawnInfo DefaultSpawn { get { foreach (var s in Spawns) if (s.IsDefault) return s; return null; } }
 
@@ -72,7 +73,7 @@ namespace UnityToBeamNG
                 var path = BeamNGEditorUtilities.HierarchyPath(mr.transform);
 
                 var cs = mr.GetComponentInParent<BeamNGCollisionSettings>();
-                if (cs != null && cs.excludeFromExport) { res.SkippedExcluded++; continue; }
+                if (cs != null && cs.excludeFromExport) { res.SkippedExcluded++; if (mr.name.ToLowerInvariant() != "lights" && !mr.name.StartsWith("Water Preview")) res.NotExported.Add(path + ": excluded (BeamNG/Collision Settings: Exclude from export, on " + cs.name + ")"); continue; }
                 if (BeamNGWaterExporter.IsAutoWaterMesh(mr, s)) { res.NotExported.Add(path + ": water surface (exported as BeamNG water)"); continue; }
 
                 // LOD: export LOD0 only
@@ -107,6 +108,14 @@ namespace UnityToBeamNG
                 var mode = cs != null ? cs.mode : BeamNGCollisionMode.Auto;
                 if (mode == BeamNGCollisionMode.Auto)
                     mode = (s.collideAllByDefault || mr.GetComponentInParent<Collider>() != null) ? BeamNGCollisionMode.VisibleMesh : BeamNGCollisionMode.None;
+
+                if (mode == BeamNGCollisionMode.VisibleMesh && s.smartCollision && (cs == null || cs.mode == BeamNGCollisionMode.Auto))
+                {
+                    var bs = mr.bounds.size; int tcount = BeamNGMeshSimplifier.TriangleCount(mesh);
+                    if (Mathf.Max(bs.x, Mathf.Max(bs.y, bs.z)) < 0.3f) { mode = BeamNGCollisionMode.None; res.SmartNone++; }
+                    else if (tcount > s.smartHeavyTris) { mode = BeamNGCollisionMode.Simplified; res.SmartSimplified++; res.SmartSimplifiedTris += tcount; }
+                    else res.SmartKeptTris += tcount;
+                }
 
                 var ls = mr.transform.lossyScale;
                 if (ls.x * ls.y * ls.z < 0f) res.MirroredObjects++;
