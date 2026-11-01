@@ -7,7 +7,7 @@ namespace UnityToBeamNG
 {
     public class UnityToBeamNGWindow : EditorWindow
     {
-        public const string ToolVersion = "0.4.2";
+        public const string ToolVersion = "0.4.3";
         public const string RepoUrl = "https://github.com/realTimexo/UnityToBeamNG";
         public const string ReleasesUrl = "https://github.com/realTimexo/UnityToBeamNG/releases";
         public const string IssuesUrl = "https://github.com/realTimexo/UnityToBeamNG/issues";
@@ -208,6 +208,19 @@ namespace UnityToBeamNG
             if (GUILayout.Button("Create stop sign (logic only, use your own model)", GUILayout.Height(24))) BeamNGRoadTools.CreateStopSign(false);
             EditorGUILayout.LabelField("In scene: " + FindObjectsByType<BeamNGTrafficSign>(FindObjectsSortMode.None).Length + " sign(s)");
             EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Speed limit signs", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Place the sign next to the road; the blue arrow points in the driving direction it is valid for. Select the sign to set the limit and the unit (km/h or mph). The simple model can be deleted and replaced by your own 3D model (the logic sits on the root object). The limit is applied to the road in front of the sign (AI and the game's speed limit).", MessageType.Info);
+            if (GUILayout.Button("Check selected objects (why is it missing in the game?)", GUILayout.Height(22))) BeamNGRoadTools.CheckSelected();
+            if (GUILayout.Button("Create speed zone (select 2 road nodes first, then press)", GUILayout.Height(24))) BeamNGRoadTools.CreateSpeedZone();
+            EditorGUILayout.LabelField("In scene: " + FindObjectsByType<BeamNGSpeedZone>(FindObjectsSortMode.None).Length + " speed zone(s)");
+            if (GUILayout.Button("Make selected objects speed signs (your own models)", GUILayout.Height(24)))
+                EditorUtility.DisplayDialog("Speed sign", BeamNGRoadTools.AddSignLogicToSelection(true) + " object(s) are now speed signs. Set the limit in the Inspector; the blue arrow = driving direction.", "OK");
+            if (GUILayout.Button("Make selected objects stop signs (your own models)", GUILayout.Height(24)))
+                EditorUtility.DisplayDialog("Stop sign", BeamNGRoadTools.AddSignLogicToSelection(false) + " object(s) are now stop signs. The blue arrow = driving direction.", "OK");
+            if (GUILayout.Button("Create speed sign (simple model)", GUILayout.Height(26))) BeamNGRoadTools.CreateSpeedSign(true);
+            if (GUILayout.Button("Create speed sign (logic only, use your own model)", GUILayout.Height(24))) BeamNGRoadTools.CreateSpeedSign(false);
+            EditorGUILayout.LabelField("In scene: " + FindObjectsByType<BeamNGSpeedSign>(FindObjectsSortMode.None).Length + " speed sign(s)");
+            EditorGUILayout.Space();
             EditorGUILayout.HelpBox("Logic (who is green when, AI stops at red) goes to signals.json. The lamps (red/yellow/green objects assigned on each light) are switched in game by a small Lua extension that ships inside the ZIP. For your own models assign the three lamp objects (emissive materials) on the Traffic Light component.", MessageType.Warning);
             EditorGUILayout.LabelField("In scene: " + FindObjectsByType<BeamNGTrafficIntersection>(FindObjectsSortMode.None).Length + " intersection(s), "
                 + FindObjectsByType<BeamNGTrafficLight>(FindObjectsSortMode.None).Length + " light(s)");
@@ -271,6 +284,15 @@ namespace UnityToBeamNG
             s.exportMinimap = EditorGUILayout.ToggleLeft("Create minimap (terrain colours, roads, buildings, trees)", s.exportMinimap);
             using (new EditorGUI.DisabledScope(!s.exportMinimap))
                 s.minimapPixels = EditorGUILayout.IntPopup("Minimap resolution", s.minimapPixels, new[] { "Auto (terrain size, max 2048)", "512", "1024", "2048", "4096" }, new[] { 0, 512, 1024, 2048, 4096 });
+            using (new EditorGUI.DisabledScope(!s.exportMinimap))
+            {
+                s.minimapRoads = EditorGUILayout.ToggleLeft("Also draw roads/markings into the image (BeamNG already draws the road network itself)", s.minimapRoads);
+                s.minimapInfoJson = EditorGUILayout.ToggleLeft("Register the image in info.json (offset/size), not only on the terrain", s.minimapInfoJson);
+                EditorGUILayout.HelpBox("If the map in BeamNG is shifted or upside down compared to the real roads, try one of these (export again each time):", MessageType.None);
+                s.minimapOffsetBottomLeft = EditorGUILayout.ToggleLeft("info.json offset = bottom-left corner (default: top-left)", s.minimapOffsetBottomLeft);
+                s.minimapFlipV = EditorGUILayout.ToggleLeft("Flip image vertically", s.minimapFlipV);
+                s.minimapFlipH = EditorGUILayout.ToggleLeft("Flip image horizontally", s.minimapFlipH);
+            }
         }
 
         static int EnableReadWriteOnVegetation()
@@ -307,6 +329,15 @@ namespace UnityToBeamNG
             s.exportMeshes = EditorGUILayout.ToggleLeft("Static meshes (.dae, TSStatic) incl. materials/textures", s.exportMeshes);
             s.terrainPbr = EditorGUILayout.ToggleLeft("PBR terrain textures (real Unity terrain textures in BeamNG; switch off if BeamNG crashes on load)", s.terrainPbr);
             s.collideAllByDefault = EditorGUILayout.ToggleLeft("All meshes collide (otherwise only with a collider)", s.collideAllByDefault);
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Performance (looks the same in Unity - only the BeamNG export is optimised)", EditorStyles.boldLabel);
+            s.smartCollision = EditorGUILayout.ToggleLeft("Smart collision: heavy objects get a simplified collision mesh, tiny ones none", s.smartCollision);
+            using (new EditorGUI.DisabledScope(!s.smartCollision))
+                s.smartHeavyTris = EditorGUILayout.IntSlider("Simplify collision above (triangles)", s.smartHeavyTris, 300, 20000);
+            s.autoLod = EditorGUILayout.ToggleLeft("Automatic distance detail level (LOD) for heavy meshes", s.autoLod);
+            using (new EditorGUI.DisabledScope(!s.autoLod))
+                s.autoLodMinTris = EditorGUILayout.IntSlider("LOD for meshes above (triangles)", s.autoLodMinTris, 500, 50000);
+            EditorGUILayout.HelpBox("Smart collision keeps exact collision for light objects (roads, curbs, small props) and replaces the collision of heavy objects (e.g. detailed buildings) by a simplified copy. Objects with a manual 'BeamNG/Collision Settings' are never changed. If something should be solid in a different way, set its Collision Settings. Automatic LOD adds a simplified mesh that BeamNG shows from far away. Both are experimental: if an object looks wrong or has no collision, turn the option off and tell me.", MessageType.None);
             EditorGUILayout.HelpBox("Can be overridden per object with the 'BeamNG/Collision Settings' component (collision: Auto/None/VisibleMesh/Bounds, exclude object).", MessageType.None);
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Not implemented yet", EditorStyles.boldLabel);
