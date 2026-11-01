@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.3 (alpha)
+- New: speed limit signs (`BeamNGSpeedSign`, km/h or mph, generated number texture, simple replaceable model, `map.json` speed limit segments along the road in front of the sign).
+- Performance: smart collision (simplified collision mesh for heavy objects, none for tiny ones), automatic distance LOD, meshes above 60,000 vertices are split into parts. The blanket performance warning is replaced by a summary.
+- Road Architect: spline nodes/splines are never marked as roads (duplicates), roads are detected at every export, `RoadWidth()` supported; signals and signs are snapped to the nearest road.
+- Materials: colour tint is baked into the exported texture.
+- Minimap: roads are not painted by default (BeamNG draws them), switches for info.json registration, offset corner, flips.
+- Water: stock texture paths written; water in the scene is detected.
+- Road Architect road surface/marking materials (RoadMaterial1-4, markers) are exported matte (roughness 0.9, no metal) and listed in the report with shader, tiling and texture size.
+- Fix: meshes whose name ends in digits (e.g. SketchUp "ID1012") were invisible in BeamNG: Torque reads the trailing number of a node name as detail size. A suffix is added to the node name.
+- New: speed zones (`BeamNGSpeedZone`): pick start and end node (Road Architect nodes), the limit applies to the road between them.
+- Roads: DecalRoad nodes closer than 2 m and sharp spikes are removed, width capped at 24 m (log: "centerline to edge distance exceeding 20m"); the minimap draws roads by default.
+- Roads: sparse road nodes (Road Architect: one per ~100 m) are resampled every 8 m (Catmull-Rom): BeamNG draws the minimap road and builds the AI graph between nodes, so they were long straight chords.
+- Speed zone gizmo follows the road nodes; speed waypoints get a small radius. New buttons: make selected objects (your own models) speed/stop signs; "Check selected objects" diagnosis.
+- Fix: signal lamp objects lost their material when the tool folder was replaced by an update (165 "empty material slot" warnings, grey lamps). Generated materials now live in Assets/UnityToBeamNG_Generated and are repaired at export.
+- Fix: compile error (ShapeOptions.Lod1 / Lod1Pixels were missing).
+- Materials: tiling/offset and colour texture are read from the property that is really used (custom shaders such as Road Architect's); shaders named Transparent/Fade/Cutout and Road Architect marker materials with an alpha texture are exported with transparency (fixes white, stretched marking overlays).
+- Report: skipped Road Architect lens meshes are no longer listed as "not exported".
+
 ## 0.4.2 (alpha)
 - Map tab: own preview image; default description "Made with UnityToBeamNG!".
 - New: BeamNGTrafficSign (signStop/basicStop), BeamNGWater (WaterBlock), Water tab, minimap draws water.
