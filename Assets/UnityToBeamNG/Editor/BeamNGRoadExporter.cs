@@ -24,6 +24,26 @@ namespace UnityToBeamNG
     {
         public const float SnapDistance = 0.75f;
 
+        /// <summary>Catmull-Rom resampling: BeamNG draws the minimap road and builds its AI graph between the nodes, so sparse nodes (e.g. one per 100 m) become straight chords.</summary>
+        public static List<Vector3> Densify(List<Vector3> P, float step)
+        {
+            if (P == null || P.Count < 2) return P;
+            var res = new List<Vector3>();
+            for (int i = 0; i + 1 < P.Count; i++)
+            {
+                var p0 = P[Mathf.Max(i - 1, 0)]; var p1 = P[i]; var p2 = P[i + 1]; var p3 = P[Mathf.Min(i + 2, P.Count - 1)];
+                float d = Vector3.Distance(p1, p2);
+                int steps = d > step * 1.5f ? Mathf.Min(200, Mathf.CeilToInt(d / step)) : 1;
+                for (int s = 0; s < steps; s++)
+                {
+                    float t = (float)s / steps, t2 = t * t, t3 = t2 * t;
+                    res.Add(0.5f * ((2f * p1) + (-p0 + p2) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 + (-p0 + 3f * p1 - 3f * p2 + p3) * t3));
+                }
+            }
+            res.Add(P[P.Count - 1]);
+            return res;
+        }
+
         public static List<RoadPath> Collect(BeamNGExportReport r)
         {
             var list = new List<RoadPath>();
@@ -31,9 +51,16 @@ namespace UnityToBeamNG
 
             var roads = new List<BeamNGRoad>(UnityEngine.Object.FindObjectsByType<BeamNGRoad>(FindObjectsSortMode.None));
             roads.Sort((a, b) => string.CompareOrdinal(BeamNGEditorUtilities.HierarchyPath(a.transform), BeamNGEditorUtilities.HierarchyPath(b.transform)));
+            var seenRa = new HashSet<Component>(); int removedWrong = 0, dupes = 0;
             foreach (var road in roads)
             {
                 if (!road.gameObject.activeInHierarchy || !road.exportEnabled) continue;
+                // older versions marked Road Architect spline NODES as roads (every node = the whole road again): remove such marks
+                bool internalObj = false;
+                foreach (var mbx in road.GetComponents<MonoBehaviour>()) if (IsRaInternal(mbx)) { internalObj = true; break; }
+                if (internalObj) { UnityEngine.Object.DestroyImmediate(road); removedWrong++; continue; }
+                var raRoad = road.source == BeamNGRoadSource.RoadArchitect || road.source == BeamNGRoadSource.ChildPoints ? FindRaRoad(road.gameObject) : null;
+                if (raRoad != null && !seenRa.Add(raRoad)) { dupes++; continue; }
                 roadsFound++;
                 List<Vector3> pts; float w = road.width;
                 var effectiveSource = road.source;
@@ -65,6 +92,8 @@ namespace UnityToBeamNG
                 });
             }
 
+            if (removedWrong > 0) r.Add(ReportStatus.PASS, "Roads", $"{removedWrong} wrong road mark(s) on Road Architect spline nodes were removed (only the road object itself counts).");
+            if (dupes > 0) r.Add(ReportStatus.PASS, "Roads", $"{dupes} duplicate mark(s) of the same Road Architect road ignored.");
             var pieces = new List<BeamNGRoadPiece>(UnityEngine.Object.FindObjectsByType<BeamNGRoadPiece>(FindObjectsSortMode.None));
             pieces.Sort((a, b) => string.CompareOrdinal(BeamNGEditorUtilities.HierarchyPath(a.transform), BeamNGEditorUtilities.HierarchyPath(b.transform)));
             foreach (var p in pieces)
@@ -86,6 +115,7 @@ namespace UnityToBeamNG
             }
 
             SnapEndpoints(list);
+            foreach (var rp in list) rp.Points = Densify(rp.Points, 8f);
             if (list.Count > 0)
                 r.Add(ReportStatus.PASS, "Roads", $"{list.Count} road segment(s) from {roadsFound} road object(s) and {piecesFound} road piece(s) written as invisible DecalRoads (AI/navigation).");
             else if (roadsFound + piecesFound == 0)
@@ -187,6 +217,22 @@ namespace UnityToBeamNG
             return null;
         }
 
+        /// <summary>Surface and marking materials set in the slots of Road Architect roads (RoadMaterial1-4, RoadMaterialMarker1-4).</summary>
+        public static HashSet<Material> RoadArchitectMaterials(HashSet<Material> markers = null)
+        {
+            var set = new HashSet<Material>();
+            foreach (var mb in UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+            {
+                if (mb == null || !IsRoadArchitectRoad(mb)) continue;
+                foreach (var n in new[] { "RoadMaterial1", "RoadMaterial2", "RoadMaterial3", "RoadMaterial4", "RoadMaterialMarker1", "RoadMaterialMarker2", "RoadMaterialMarker3", "RoadMaterialMarker4" })
+                {
+                    var m = Member(mb, n) as Material;
+                    if (m != null) { set.Add(m); if (markers != null && n.Contains("Marker")) markers.Add(m); }
+                }
+            }
+            return set;
+        }
+
         static IEnumerable<MonoBehaviour> Candidates(GameObject go)
         {
             foreach (var m in go.GetComponents<MonoBehaviour>()) yield return m;
@@ -198,10 +244,14 @@ namespace UnityToBeamNG
         public static bool IsRoadArchitectRoad(Component comp)
         {
             if (comp == null) return false;
-            if (comp.GetType().Name.EndsWith("Road", StringComparison.Ordinal) && !(comp is BeamNGRoad) && RaNodeTransforms(comp.gameObject, false) != null) return true;
+            if (IsRaInternal(comp) || comp is BeamNGRoad) return false;
+            string tn = comp.GetType().Name;
+            // the road component itself: original "GSDRoad", fork "RoadArchitect.Road"; other forks: any class named *Road with a spline
+            if (!(tn == "GSDRoad" || (tn == "Road" && (comp.GetType().Namespace ?? "").Contains("RoadArchitect")) || tn.EndsWith("Road", StringComparison.Ordinal))) return false;
+            if (tn == "DecalRoad") return false;
             try
             {
-                var spline = Member(comp, "spline", "mSpline", "Spline");
+                var spline = Member(comp, "spline", "mSpline", "Spline", "GSDSpline");
                 if (spline == null) return false;
                 var nl = Member(spline, "mNodes", "nodes", "Nodes") as IEnumerable;
                 if (nl == null) return false;
@@ -218,6 +268,26 @@ namespace UnityToBeamNG
             return FromRaNodes(road.gameObject, out width);
         }
 
+        /// <summary>Spline nodes / spline objects of Road Architect: they point to the road but are NOT the road.</summary>
+        public static bool IsRaInternal(Component c)
+        {
+            if (c == null) return false;
+            string n = c.GetType().Name;
+            return n.EndsWith("SplineN", StringComparison.Ordinal) || n == "SplineNode" || n.EndsWith("SplineC", StringComparison.Ordinal) || n == "RoadSpline"
+                || n.EndsWith("RoadSpline", StringComparison.Ordinal) || n == "RoadIntersection" || n == "GSDRoadIntersection";
+        }
+
+        static bool IsNodeType(Component c) { string n = c.GetType().Name; return n.EndsWith("SplineN", StringComparison.Ordinal) || n == "SplineNode"; }
+
+        /// <summary>The Road Architect road component this object belongs to (on the object, a parent or a child), or null.</summary>
+        public static Component FindRaRoad(GameObject go)
+        {
+            foreach (var mb in go.GetComponents<MonoBehaviour>()) if (IsRoadArchitectRoad(mb)) return mb;
+            foreach (var mb in go.GetComponentsInParent<MonoBehaviour>(true)) if (IsRoadArchitectRoad(mb)) return mb;
+            foreach (var mb in go.GetComponentsInChildren<MonoBehaviour>(true)) if (IsRoadArchitectRoad(mb)) return mb;
+            return null;
+        }
+
         static bool TypeEndsWith(Component c, string suffix)
         {
             return c != null && c.GetType().Name.EndsWith(suffix, StringComparison.Ordinal);
@@ -230,7 +300,7 @@ namespace UnityToBeamNG
             {
                 var nodes = new List<Transform>();
                 foreach (var mb in t.GetComponentsInChildren<MonoBehaviour>(true))
-                    if (TypeEndsWith(mb, "SplineN")) nodes.Add(mb.transform);
+                    if (IsNodeType(mb)) nodes.Add(mb.transform);
                 if (nodes.Count >= 2) return nodes;
             }
             return null;
@@ -243,7 +313,7 @@ namespace UnityToBeamNG
             for (var t = go.transform; t != null && nodeT == null; t = t.parent)
             {
                 var nodes = new List<Transform>();
-                foreach (var mb in t.GetComponentsInChildren<MonoBehaviour>(true)) if (TypeEndsWith(mb, "SplineN")) nodes.Add(mb.transform);
+                foreach (var mb in t.GetComponentsInChildren<MonoBehaviour>(true)) if (IsNodeType(mb)) nodes.Add(mb.transform);
                 if (nodes.Count >= 2) { owner = t; nodeT = nodes; }
             }
             if (nodeT == null) return null;
@@ -263,7 +333,7 @@ namespace UnityToBeamNG
             {
                 foreach (var mb in owner.GetComponentsInChildren<MonoBehaviour>(true))
                 {
-                    if (!TypeEndsWith(mb, "SplineC")) continue;
+                    if (!(TypeEndsWith(mb, "SplineC") || TypeEndsWith(mb, "RoadSpline"))) continue;
                     var m = mb.GetType().GetMethod("GetSplineValue", All);
                     if (m == null) continue;
                     var prm = m.GetParameters();
@@ -306,6 +376,11 @@ namespace UnityToBeamNG
                     if (spline == null) continue;
                     var wObj = Member(comp, "RoadWidth", "roadWidth", "mRoadWidth");
                     if (wObj is float) width = (float)wObj;
+                    else
+                    {
+                        var wm = comp.GetType().GetMethod("RoadWidth", All, null, Type.EmptyTypes, null);
+                        if (wm != null) { var wv = wm.Invoke(comp, null); if (wv is float) width = (float)wv; }
+                    }
 
                     var nodes = new List<Vector3>();
                     var nl = Member(spline, "mNodes", "nodes", "Nodes") as IEnumerable;
@@ -352,11 +427,26 @@ namespace UnityToBeamNG
                 string name = "road_" + rp.Name; int n = 2;
                 while (!used.Add(name)) name = "road_" + rp.Name + "_" + (n++);
                 var nodes = new StringBuilder("[");
-                for (int i = 0; i < rp.Points.Count; i++)
+                // BeamNG builds road edges from node width and neighbouring nodes: drop nodes closer than 2 m and sharp spikes
+                // (log: "centerline to edge distance exceeding 20m"), cap the width.
+                var clean = new List<Vector3>();
+                foreach (var pt in rp.Points)
                 {
-                    var b = BeamNGCoordinateConverter.Position(rp.Points[i]);
+                    if (clean.Count > 0 && Vector3.Distance(clean[clean.Count - 1], pt) < 2f) continue;
+                    if (clean.Count >= 2)
+                    {
+                        var d1 = clean[clean.Count - 1] - clean[clean.Count - 2]; var d2 = pt - clean[clean.Count - 1]; d1.y = 0f; d2.y = 0f;
+                        if (d1.sqrMagnitude > 1e-6f && d2.sqrMagnitude > 1e-6f && Vector3.Dot(d1.normalized, d2.normalized) < -0.5f) continue;
+                    }
+                    clean.Add(pt);
+                }
+                if (clean.Count < 2) clean = rp.Points;
+                float wcap = Mathf.Clamp(rp.Width, 2f, 24f);
+                for (int i = 0; i < clean.Count; i++)
+                {
+                    var b = BeamNGCoordinateConverter.Position(clean[i]);
                     if (i > 0) nodes.Append(',');
-                    nodes.Append(BeamNGJson.A(b.x, b.y, b.z, rp.Width));
+                    nodes.Append(BeamNGJson.A(b.x, b.y, b.z, wcap));
                 }
                 nodes.Append(']');
                 var o = new JsonObj().Str("class", "DecalRoad").Str("name", name).Str("__parent", "Roads")
