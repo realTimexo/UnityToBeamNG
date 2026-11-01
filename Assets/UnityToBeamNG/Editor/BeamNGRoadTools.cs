@@ -37,6 +37,10 @@ namespace UnityToBeamNG
         public static int FindRoadArchitectRoads()
         {
             int added = 0;
+            // remove marks that older versions put on Road Architect spline nodes (they are not roads)
+            foreach (var br in Object.FindObjectsByType<BeamNGRoad>(FindObjectsSortMode.None))
+                foreach (var mb0 in br.GetComponents<MonoBehaviour>())
+                    if (BeamNGRoadExporter.IsRaInternal(mb0)) { Object.DestroyImmediate(br); break; }
             foreach (var mb in Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
             {
                 if (mb == null || mb is BeamNGRoad || mb is BeamNGRoadPiece) continue;
@@ -164,6 +168,106 @@ namespace UnityToBeamNG
             Selection.activeGameObject = root;
         }
 
+        /// <summary>Speed limit sign: pole + red ring + white disc with the number (generated texture). Replace the child objects with your own model if you like.</summary>
+        /// <summary>Speed zone object; if two objects (e.g. Road Architect nodes) are selected they become start and end node.</summary>
+        public static void CreateSpeedZone()
+        {
+            var sel = Selection.transforms;
+            var go = new GameObject("BeamNG Speed Zone");
+            Undo.RegisterCreatedObjectUndo(go, "Create speed zone");
+            var z = go.AddComponent<BeamNGSpeedZone>();
+            if (sel.Length >= 2) { z.startNode = sel[0]; z.endNode = sel[1]; go.transform.position = (sel[0].position + sel[1].position) * 0.5f; }
+            else go.transform.position = Pivot();
+            Selection.activeGameObject = go;
+        }
+
+        /// <summary>Adds the sign logic to the selected objects (your own 3D models stay as they are).</summary>
+        public static int AddSignLogicToSelection(bool speed)
+        {
+            int n = 0;
+            foreach (var go in Selection.gameObjects)
+            {
+                if (speed) { if (go.GetComponent<BeamNGSpeedSign>() == null) { Undo.AddComponent<BeamNGSpeedSign>(go); n++; } }
+                else if (go.GetComponent<BeamNGTrafficSign>() == null) { Undo.AddComponent<BeamNGTrafficSign>(go); n++; }
+            }
+            return n;
+        }
+
+        /// <summary>Diagnosis: prints position, size, scale, vertex count and materials of every mesh below the selection.</summary>
+        public static void CheckSelected()
+        {
+            var sb = new System.Text.StringBuilder("UnityToBeamNG - selected objects\n");
+            int n = 0;
+            foreach (var go in Selection.gameObjects)
+                foreach (var mr in go.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    if (n++ >= 25) break;
+                    var mf = mr.GetComponent<MeshFilter>();
+                    var m = mf != null ? mf.sharedMesh : null;
+                    var b = mr.bounds; var ls = mr.transform.lossyScale;
+                    int miss = 0; foreach (var mt in mr.sharedMaterials) if (mt == null) miss++;
+                    sb.AppendLine(BeamNGEditorUtilities.HierarchyPath(mr.transform) + " | active " + mr.gameObject.activeInHierarchy + " enabled " + mr.enabled + " | pos " + b.center.ToString("F1") + " size " + b.size.ToString("F2") + " | scale " + ls.ToString("F3") + " | mesh " + (m != null ? m.name + " v" + m.vertexCount + (m.isReadable ? "" : " NOT READABLE") : "none") + " | materials " + mr.sharedMaterials.Length + " (empty " + miss + ")" + (mr.GetComponentInParent<LODGroup>() != null ? " | LODGroup" : ""));
+                }
+            Debug.Log(sb.ToString());
+            EditorUtility.DisplayDialog("Selected objects", n == 0 ? "No mesh below the selection." : "Details for " + Mathf.Min(n, 25) + " mesh(es) are in the Unity Console (copy them and send them to me).", "OK");
+        }
+
+        public static void CreateSpeedSign(bool withVisuals)
+        {
+            var root = new GameObject("BeamNG Speed Sign");
+            Undo.RegisterCreatedObjectUndo(root, "Create speed sign");
+            root.transform.position = Pivot();
+            var sg = root.AddComponent<BeamNGSpeedSign>();
+            if (withVisuals) BuildSpeedSignVisual(root.transform, sg.limit);
+            Selection.activeGameObject = root;
+        }
+
+        /// <summary>(Re)builds the simple speed sign model for the current limit of the sign.</summary>
+        public static void RebuildSpeedSign(BeamNGSpeedSign sg)
+        {
+            for (int i = sg.transform.childCount - 1; i >= 0; i--) Undo.DestroyObjectImmediate(sg.transform.GetChild(i).gameObject);
+            BuildSpeedSignVisual(sg.transform, sg.limit);
+        }
+
+        static void BuildSpeedSignVisual(Transform root, int limit)
+        {
+            var pole = LampMaterial("BeamNG_Signal_Dark", new Color(0.08f, 0.08f, 0.08f), false);
+            var red = LampMaterial("BeamNG_Sign_Red", new Color(0.8f, 0.05f, 0.05f), false);
+            Part(PrimitiveType.Cylinder, "Pole", root, new Vector3(0f, 1.3f, 0f), new Vector3(0.08f, 1.3f, 0.08f), pole);
+            var ring = Part(PrimitiveType.Cylinder, "Sign Ring", root, new Vector3(0f, 2.75f, -0.05f), new Vector3(0.8f, 0.01f, 0.8f), red);
+            ring.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var face = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            face.name = "Sign Face";
+            Object.DestroyImmediate(face.GetComponent<Collider>());
+            face.transform.SetParent(root, false);
+            face.transform.localPosition = new Vector3(0f, 2.75f, -0.065f);   // quad front side looks towards -Z = towards the oncoming driver
+            face.transform.localScale = new Vector3(0.8f, 0.8f, 1f);
+            face.GetComponent<MeshRenderer>().sharedMaterial = SpeedSignMaterial(limit);
+        }
+
+        static Material SpeedSignMaterial(int limit)
+        {
+            const string dir = "Assets/UnityToBeamNG_Generated";
+            LampMaterial("BeamNG_Signal_Dark", Color.black, false);   // makes sure the folder exists
+            string png = dir + "/BeamNG_Speed_" + limit + ".png";
+            if (AssetDatabase.LoadAssetAtPath<Texture2D>(png) == null)
+            {
+                var tex = BeamNGSpeedSignTexture.Make(limit, 256);
+                System.IO.File.WriteAllBytes(png, tex.EncodeToPNG());
+                Object.DestroyImmediate(tex);
+                AssetDatabase.ImportAsset(png);
+            }
+            string matPath = dir + "/BeamNG_Speed_" + limit + ".mat";
+            var m = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+            if (m != null) return m;
+            var sh = Shader.Find("Standard") ?? Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Unlit/Texture");
+            m = new Material(sh) { name = "BeamNG_Speed_" + limit };
+            m.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(png);
+            if (m.HasProperty("_Mode")) { m.SetFloat("_Mode", 1f); m.SetFloat("_Cutoff", 0.5f); m.EnableKeyword("_ALPHATEST_ON"); m.renderQueue = 2450; }   // round sign: cut out the corners
+            AssetDatabase.CreateAsset(m, matPath);
+            return m;
+        }
+
         /// <summary>Water volume: root object (X/Z scale = footprint, Y position = surface) + a preview quad that is not exported.</summary>
         public static void CreateWater()
         {
@@ -184,13 +288,37 @@ namespace UnityToBeamNG
             Selection.activeGameObject = root;
         }
 
+        /// <summary>Gives lamp objects whose material was lost (e.g. the tool folder was replaced by an update) their colour again.</summary>
+        public static int RepairLampMaterials()
+        {
+            int fixedCount = 0;
+            foreach (var tl in Object.FindObjectsByType<BeamNGTrafficLight>(FindObjectsSortMode.None))
+            {
+                var roles = new[] { new KeyValuePair<Transform, string>(tl.redLamp, "Red"), new KeyValuePair<Transform, string>(tl.yellowLamp, "Yellow"), new KeyValuePair<Transform, string>(tl.greenLamp, "Green") };
+                foreach (var kv in roles)
+                {
+                    if (kv.Key == null) continue;
+                    foreach (var mr in kv.Key.GetComponentsInChildren<MeshRenderer>(true))
+                    {
+                        var mats = mr.sharedMaterials; bool bad = false;
+                        for (int i = 0; i < mats.Length; i++) if (mats[i] == null) bad = true;
+                        if (!bad) continue;
+                        Color col = kv.Value == "Red" ? new Color(1f, 0.05f, 0.05f) : kv.Value == "Yellow" ? new Color(1f, 0.75f, 0f) : new Color(0.05f, 1f, 0.2f);
+                        var m = LampMaterial("BeamNG_Signal_" + kv.Value, col, true);
+                        for (int i = 0; i < mats.Length; i++) if (mats[i] == null) mats[i] = m;
+                        mr.sharedMaterials = mats; fixedCount++;
+                    }
+                }
+            }
+            return fixedCount;
+        }
+
         static Material LampMaterial(string name, Color color, bool emissive)
         {
-            const string dir = "Assets/UnityToBeamNG/Generated";
+            const string dir = "Assets/UnityToBeamNG_Generated";
             if (!AssetDatabase.IsValidFolder(dir))
             {
-                if (!AssetDatabase.IsValidFolder("Assets/UnityToBeamNG")) AssetDatabase.CreateFolder("Assets", "UnityToBeamNG");
-                AssetDatabase.CreateFolder("Assets/UnityToBeamNG", "Generated");
+                AssetDatabase.CreateFolder("Assets", "UnityToBeamNG_Generated");   // outside the tool folder: survives a tool update
             }
             var path = dir + "/" + name + ".mat";
             var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
